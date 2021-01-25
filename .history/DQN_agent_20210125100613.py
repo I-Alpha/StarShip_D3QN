@@ -45,10 +45,10 @@ class DQN:
         self.epsilon_decay = 1e-5
         self.burn_limit = .001
         self.learning_rate = .7e-4
-        memory_size = 10000
+        memory_size = 20000
         self.modelname ='D3QNmodel'
         self.MEMORY = Memory(memory_size)
-        self.memory = deque(maxlen=2000)
+        self.memory = deque(maxlen=1000)
         if model == None:
             self.model = self.build_modelGPU()
             # self.target_model = self.build_modelGPU()

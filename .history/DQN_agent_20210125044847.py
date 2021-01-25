@@ -71,8 +71,8 @@ class DQN:
 
         digit_b = Input(shape=input_shape)
         x = Flatten()(t)
-        x = Dense(32, activation="relu")(x)
-        out_b = Dense(32, activation="relu")(x)        
+        x = Dense(64, activation="relu")(x)
+        out_b = Dense(64, activation="relu")(x)        
 
         concatenated = concatenate([out_a, out_b])
         # model_final.add(Reshape((4,11,2), input_shape=(88,)))

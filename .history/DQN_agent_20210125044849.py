@@ -64,15 +64,16 @@ class DQN:
 
         digit_a = Input(shape=input_shape)
         X = Conv2D(64, 4, strides=(2), activation="relu",  padding="valid",
-                   kernel_initializer='he_uniform', data_format='channels_first')(t)
+                   kernel_initializer='he_uniform', data_format='channels_first')(X)
         X = Conv2D(64, 3, strides=(1), activation="relu",  padding="valid",
                    kernel_initializer='he_uniform', data_format='channels_first')(X)
         out_a = Flatten()(X)
 
         digit_b = Input(shape=input_shape)
         x = Flatten()(t)
-        x = Dense(32, activation="relu")(x)
-        out_b = Dense(32, activation="relu")(x)        
+        x = Dense(64, activation="relu")(x)
+        x = Dense(64, activation="relu")(x)
+        out_b = Dense(64, activation="relu")(x)        
 
         concatenated = concatenate([out_a, out_b])
         # model_final.add(Reshape((4,11,2), input_shape=(88,)))
@@ -80,8 +81,11 @@ class DQN:
         # model_final.add(Flatten())
         # model_final.add(Dense(256, activation='relu', kernel_initializer='he_uniform'))
         # model_final.add(Dense(64, activation='relu', kernel_initializer='he_uniform'))
-        out_c = Dense(128, activation='relu',
+        out_c = Dense(512, activation='relu',
                       kernel_initializer='he_uniform')(concatenated)
+
+        out_c = Dense(256, activation='relu',
+                      kernel_initializer='he_uniform')(out_c)
         
         out_c = Dense(64, activation='relu',
                       kernel_initializer='he_uniform')(out_c)

@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"python.pythonPath": "C:\\Users\\Ibrah\\OneDrive\\Documents\\Fun programming code\\Re-enviroment\\StarShip\\starship\\python.exe",
+		"git.ignoreLimitWarning": true,
+		"liveServer.settings.port": 5501
+	}
+}

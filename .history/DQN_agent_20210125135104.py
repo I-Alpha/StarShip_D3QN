@@ -130,7 +130,7 @@ class DQN:
         X_input = Input(shape=(40000,))
         X = X_input
         truncatedn_init = initializers.TruncatedNormal(0, 1e-2)
-        x_init = initializers.GlorotUniform()
+        x_init = initializers.glorot_uniform()
         const_init = initializers.constant(1e-2)
         X = Reshape(input_shape)(X)        
         X = Conv2D(32, 8, strides=(4),padding="valid", activation="elu", kernel_initializer=x_init, data_format="channels_first")(X)
@@ -159,9 +159,9 @@ class DQN:
             X = Dense(action_space, activation="elu",kernel_initializer='he_uniform', bias_initializer=const_init)(X)
 
         model = Model(inputs = X_input, outputs = X, name = '3CNN_model')
-        model.compile(loss="mean_squared_error", optimizer=RMSprop(lr=0.00025, rho=0.95, epsilon=0.01), metrics=["accuracy"])
+        # model.compile(loss="mean_squared_error", optimizer=RMSprop(lr=0.00025, rho=0.95, epsilon=0.01), metrics=["accuracy"])
         
-        # model.compile(loss="mean_squared_error", optimizer=Adam(lr=0.00025,epsilon=0.01), metrics=["accuracy"])
+        model.compile(loss="mean_squared_error", optimizer=Adam(lr=0.00025,epsilon=0.01), metrics=["accuracy"])
         model.summary()
         return model
 

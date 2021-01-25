@@ -129,39 +129,38 @@ class DQN:
 
         X_input = Input(shape=(40000,))
         X = X_input
-        truncatedn_init = initializers.TruncatedNormal(0, 1e-2)
-        x_init = initializers.GlorotUniform()
-        const_init = initializers.constant(1e-2)
+
         X = Reshape(input_shape)(X)        
-        X = Conv2D(32, 8, strides=(4),padding="valid", activation="elu", kernel_initializer=x_init, data_format="channels_first")(X)
-        X = Conv2D(64, 4, strides=(2),padding="valid",activation="elu", kernel_initializer=x_init,   data_format="channels_first")(X)
-        X = Conv2D(128, 4, strides=(2),padding="valid",activation="elu",kernel_initializer=x_init,   data_format="channels_first")(X)
+        X = Conv2D(16, 5, strides=(3, 3),padding="valid", input_shape=input_shape, activation="relu", data_format="channels_first")(X)
+        X = Conv2D(32, 4, strides=(2, 2),padding="valid", activation="relu", data_format="channels_first")(X)
+        X = Conv2D(32, 3, strides=(1, 1),padding="valid", activation="relu", data_format="channels_first")(X)
         X = Flatten()(X)
         # 'Dense' is the basic form of a neural network layer
-        # Input Layer of state size(4) and Hidden Layer with 512 nodes         
-        X = Dense(512, activation="elu", kernel_initializer=x_init)(X) 
-        # # Hidden layer with 256 nodes
-        # X = Dense(256, activation="relu", kernel_initializer=truncatedn_init, bias_initializer=const_init)(X)
+        # Input Layer of state size(4) and Hidden Layer with 512 nodes
+        X = Dense(512, activation="relu", kernel_initializer='random_uniform')(X)
+
+        # Hidden layer with 256 nodes
+        X = Dense(256, activation="relu", kernel_initializer='random_uniform')(X)
         
-        # # Hidden layer with 64 nodes
-        # X = Dense(64, activation="relu", kernel_initializer=truncatedn_init, bias_initializer=const_init)(X)
- 
+        # Hidden layer with 64 nodes
+        X = Dense(64, activation="relu", kernel_initializer='random_uniform')(X)
+
         if dueling:
-            state_value = Dense(1,kernel_initializer=x_init)(X)
+            state_value = Dense(1, kernel_initializer='random_uniform' ,activation = 'softmax')(X)
             state_value = Lambda(lambda s: K.expand_dims(s[:, 0], -1), output_shape=(action_space,))(state_value)
 
-            action_advantage = Dense(action_space,kernel_initializer=x_init)(X)
+            action_advantage = Dense(action_space, kernel_initializer='random_uniform',activation = 'relu')(X)
             action_advantage = Lambda(lambda a: a[:, :] - K.mean(a[:, :], keepdims=True), output_shape=(action_space,))(action_advantage)
 
             X = Add()([state_value, action_advantage])
         else:
             # Output Layer with # of actions: 2 nodes (left, right)
-            X = Dense(action_space, activation="elu",kernel_initializer='he_uniform', bias_initializer=const_init)(X)
+            X = Dense(action_space, activation="linear", kernel_initializer='random_uniform')(X)
 
         model = Model(inputs = X_input, outputs = X, name = '3CNN_model')
-        model.compile(loss="mean_squared_error", optimizer=RMSprop(lr=0.00025, rho=0.95, epsilon=0.01), metrics=["accuracy"])
+        # model.compile(loss="mean_squared_error", optimizer=RMSprop(lr=0.00025, rho=0.95, epsilon=0.01), metrics=["accuracy"])
         
-        # model.compile(loss="mean_squared_error", optimizer=Adam(lr=0.00025,epsilon=0.01), metrics=["accuracy"])
+        model.compile(loss="mean_squared_error", optimizer=Adam(lr=0.00025,epsilon=0.01), metrics=["accuracy"])
         model.summary()
         return model
 

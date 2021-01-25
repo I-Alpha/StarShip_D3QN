@@ -47,8 +47,8 @@ class DQN:
         self.learning_rate = .7e-4
         memory_size = 1000000 
         self.modelname ='D3QNmodel'
-        #self.MEMORY = Memory(memory_size)
-        self.memory = deque(maxlen=1000000)
+        self.MEMORY = Memory(memory_size)
+        self.memory =Memory(memory_size)
         if model == None:
             self.model = self.build_modelGPU()
             # self.target_model = self.build_modelGPU()

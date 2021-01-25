@@ -12,3 +12,5 @@ random_policy.py runs the program with randomised inputs to simulate an Agent
 
 DQNAgent.py can also be run on its own with its own default values and is equivalent to running main.py without any arguments 
 
+
+(Will clean up code later)

@@ -46,7 +46,7 @@ class DQN:
         self.MEMORY = Memory(memory_size)
         self.memory = deque(maxlen=5000)
         if model == None:
-            self.model = self.build_modelGPU()
+            self.model = self.build_model()
         else:
             self.model = model 
 
@@ -56,7 +56,7 @@ class DQN:
         self.model.save(
             "savedModels\\CNN-{}-{:.2f}.h5".format(DQN.currEpisode, score), overwrite=True)
 
-    def build_modelPar(self,input_shape=(4, 100, 100,)):
+    def build_model(self,input_shape=(4, 100, 100,)):
 
         self.network_size = 12*4 + 6*4 + 12
 

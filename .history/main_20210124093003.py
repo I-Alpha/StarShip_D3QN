@@ -35,7 +35,7 @@ if __name__ == '__main__':
         print("\n\n\n --checkpoint not given.\n Default checkpoint set at {} epochs.".format(args.checkpoint))
     else :
         print("checkpoint at {}".format(args.checkpoint))
-    if args.last_epoch > 0 and  args.model == None:
+    if args.last_epoch !=0 and  args.model == None:
         print("\n\n\nError. No model specified but last checkpoint specified at ",args.last_epoch,".")
         exit()
     if args.mode == 'train':

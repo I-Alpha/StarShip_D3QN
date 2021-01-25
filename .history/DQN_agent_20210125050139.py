@@ -42,11 +42,10 @@ class DQN:
         self.burn_limit = .001
         self.learning_rate = .001
         memory_size = 20000
-        self.modelname ='D3QNmodel'
         self.MEMORY = Memory(memory_size)
         self.memory = deque(maxlen=5000)
         if model == None:
-            self.model = self.build_modelGPU()
+            self.model = self.build_model()
         else:
             self.model = model 
 
@@ -56,7 +55,7 @@ class DQN:
         self.model.save(
             "savedModels\\CNN-{}-{:.2f}.h5".format(DQN.currEpisode, score), overwrite=True)
 
-    def build_modelPar(self,input_shape=(4, 100, 100,)):
+    def build_model(self,input_shape=(4, 100, 100,)):
 
         self.network_size = 12*4 + 6*4 + 12
 
@@ -120,6 +119,7 @@ class DQN:
         X = Conv2D(64, 3, strides=(1), activation="relu",  padding="valid",
                    kernel_initializer='he_uniform', data_format='channels_first')(X)
         X = Flatten()(X)
+        X = Dense(512, activation="relu", kernel_initializer='he_uniform')(X)
         X = Dense(self.network_size,  activation="relu",
                   kernel_initializer='he_uniform')(X)
         X = Dense(64,  activation="relu", kernel_initializer='he_uniform')(X)
@@ -133,7 +133,7 @@ class DQN:
 
         out = Add()([state_value, action_advantage]) 
 
-        model = Model(inputs=X_input, outputs=out, name=self.modelname)
+        model = Model(inputs=X_input, outputs=out, name='DQ3model')
         model.compile(loss="mse", optimizer=RMSprop(
             lr=self.learning_rate, rho=0.95, epsilon=self.epsilon), metrics=["accuracy"])
         model.summary()
@@ -169,7 +169,7 @@ class DQN:
 
         out = Add()([state_value, action_advantage])
         out = Dense(self.action_space, activation='linear')(out)
-        model = Model(inputs=X_input, outputs=out, name=self.modelname)
+        model = Model(inputs=X_input, outputs=out, name='DQ3model')
         model.compile(loss="mse", optimizer=RMSprop(
             lr=0.00025, rho=0.95, epsilon=0.01), metrics=["accuracy"])
         model.summary()

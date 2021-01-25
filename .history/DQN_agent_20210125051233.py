@@ -40,7 +40,7 @@ class DQN:
         self.epsilon_min = .01
         self.epsilon_decay = 1e-5
         self.burn_limit = .001
-        self.learning_rate = .7e-4
+        self.learning_rate = .7e4
         memory_size = 20000
         self.modelname ='D3QNmodel'
         self.MEMORY = Memory(memory_size)

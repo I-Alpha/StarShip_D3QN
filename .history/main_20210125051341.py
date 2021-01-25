@@ -31,7 +31,7 @@ args = parser.parse_args()
 
 if __name__ == '__main__': 
     if args.checkpoint == None:  
-        args.checkpoint = 50
+        args.checkpoint = 300
         print("\n\n\n --checkpoint not given.\n Default checkpoint set at {} epochs.".format(args.checkpoint))
     else :
         print("checkpoint at {}".format(args.checkpoint))

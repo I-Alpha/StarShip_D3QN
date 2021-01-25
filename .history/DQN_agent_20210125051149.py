@@ -40,7 +40,7 @@ class DQN:
         self.epsilon_min = .01
         self.epsilon_decay = 1e-5
         self.burn_limit = .001
-        self.learning_rate = .7e-4
+        self.learning_rate = .7e4
         memory_size = 20000
         self.modelname ='D3QNmodel'
         self.MEMORY = Memory(memory_size)
@@ -115,13 +115,14 @@ class DQN:
         X = X_input
 
         X = Reshape(input_shape)(X)
-        X = Conv2D(64, 8, strides=(4), activation="relu",  padding="valid",
+        X = Conv2D(64, 4, strides=(4), activation="relu",  padding="valid",
                    kernel_initializer='he_uniform', data_format='channels_first')(X)
-        X = Conv2D(64, 4, strides=(2), activation="relu",  padding="valid",
+        X = Conv2D(64, 3, strides=(1), activation="relu",  padding="valid",
                    kernel_initializer='he_uniform', data_format='channels_first')(X)
         X = Flatten()(X)
         X = Dense(self.network_size,  activation="relu",
                   kernel_initializer='he_uniform')(X)
+        X = Dense(64,  activation="relu", kernel_initializer='he_uniform')(X)
         state_value = Dense(1,kernel_initializer='he_uniform')(X)
         state_value = Lambda(lambda s: K.expand_dims(
             s[:, 0], -1), output_shape=(self.action_space,))(state_value)

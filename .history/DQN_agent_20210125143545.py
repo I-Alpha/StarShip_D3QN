@@ -38,7 +38,7 @@ class DQN:
         self.scores, self.episodes, self.average = [], [], []
         self.action_space = action_space
         self.state_space = state_space
-        self.epsilon = 1
+        self.epsilon = .1
         self.gamma = .95
         self.batch_size = 64
         self.epsilon_min = .1
@@ -159,7 +159,7 @@ class DQN:
             X = Dense(action_space, activation="elu",kernel_initializer='he_uniform', bias_initializer=const_init)(X)
 
         model = Model(inputs = X_input, outputs = X, name = '3CNN_model')
-        model.compile(loss="mean_squared_error", optimizer=RMSprop(lr=self.learning_rate, epsilon= self.epsilon), metrics=["accuracy"])
+        model.compile(loss="mean_squared_error", optimizer=RMSprop(lr=0.00025, rho=0.95, epsilon=0.01), metrics=["accuracy"])
         
         # model.compile(loss="mean_squared_error", optimizer=Adam(lr=0.00025,epsilon=0.01), metrics=["accuracy"])
         model.summary()

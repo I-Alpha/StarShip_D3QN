@@ -1,0 +1,4 @@
+conda activate "c:\Users\Ibrah\OneDrive\Documents\Fun programming code\Re-enviroment\StarShip\starship" 
+call
+conda activate "C:/Users/Ibrah/OneDrive/Documents/Fun programming code/Re-enviroment/StarShip/main.py" --model savedModels\CNN-900--10.40.h5  -e 4000 -chk 100set env1=val1
+set env2=val2

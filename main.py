@@ -19,7 +19,7 @@ from icecream import ic
 parser = argparse.ArgumentParser(
     description='Args for initialising training and testing of RL Agent')
 parser.add_argument('--mode', '-m', default='train')
-parser.add_argument('--model', '--mp', default="savedModels\CNN-900--10.40.h5")
+parser.add_argument('--model', '--mp', default=None)
 parser.add_argument('--epochs', '-e', type=int,default=2000)
 parser.add_argument('--learnrate', '-l', default=.001)
 parser.add_argument('--plot', '-p', default=True)

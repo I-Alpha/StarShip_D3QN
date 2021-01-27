@@ -1,2 +1,3 @@
 
-                    tf.Summary.Value(tag="dead obstacles", simple_value=env.deadObstacles)
+        print("\n\n\nError. No model specified but last checkpoint specified at ",args.last_epoch,".")
+        exit()

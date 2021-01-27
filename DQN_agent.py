@@ -1,3 +1,4 @@
+from tensorflow import keras
 from keras.layers import Input, Conv2D, Dense, concatenate
 from memory_profiler import profile
 import random
@@ -16,11 +17,7 @@ from keras.metrics import Mean
 from keras import backend as K
 from PER import *
 import pathlib
-import tensorflow as tf2
-import tensorflow.compat.v1 as tf
-
-tf.compat.v1.enable_eager_execution()
-tf.disable_v2_behavior()
+import tensorflow as tf 
 import pandas as pd
 import chart_studio.plotly as py
 import plotly.express as px
@@ -48,13 +45,13 @@ class DQN:
         self.state_space = state_space
         self.epsilon = 1
         self.gamma = .95
-        self.batch_size = 64
-        self.epsilon_min = .1
+        self.batch_size = 32
+        self.epsilon_min = .01
         self.epsilon_decay = 1e-5
         self.burn_limit = .001
         self.learning_rate = .7e-4
         self.modelname ='D3QNmodel'
-        self.memory = deque(maxlen=3000)
+        self.memory = deque(maxlen=30000)
         if model == None:
             self.model = self.build_modelGPU()
             # self.target_model = self.build_modelGPU()
@@ -111,7 +108,7 @@ class DQN:
 
         model_final = Model([digit_0], out,name='ParallelCNNmodel')
 
-        model_final.compile(loss="mse", calloptimizer=RMSprop(
+        model_final.compile(loss="mse", optimizer=RMSprop(
             lr=self.learning_rate, rho=0.95, decay=0.0, epsilon=self.epsilon), metrics=["accuracy"])
         print(model_final.summary())
         return model_final
@@ -164,7 +161,7 @@ class DQN:
             X = Dense(action_space, activation="elu",kernel_initializer='he_uniform', bias_initializer=const_init)(X)
 
         model = Model(inputs = X_input, outputs = X, name = '3CNN_model')
-        model.compile(loss="mean_squared_error", optimizer=RMSprop(lr=self.learning_rate, epsilon= self.epsilon),  metrics=["accuracy"])
+        model.compile(loss="mean_squared_error", optimizer=Adam(lr=self.learning_rate),  metrics=["accuracy"])
         
         # model.compile(loss="mean_squared_error", optimizer=Adam(lr=0.00025,epsilon=0.01), metrics=["accuracy"])
         model.summary()
@@ -273,9 +270,9 @@ class DQN:
 
 
         
-log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-g=  tf.get_default_graph()
-file_writer = tf.summary.FileWriter(log_dir, g)    
+# log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+# g=  tf.get_default_graph()
+# file_writer = tf.summary.FileWriter(log_dir, g)    
 gl_total_frames=0
 gl_score =0
 gl_loss=0

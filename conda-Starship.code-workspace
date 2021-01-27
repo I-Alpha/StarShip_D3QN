@@ -5,8 +5,20 @@
 		}
 	],
 	"settings": {
-		"python.pythonPath": "C:\\Users\\Ibrah\\OneDrive\\Documents\\Fun programming code\\Re-enviroment\\StarShip\\starship\\python.exe",
+		"python.pythonPath": "env-01\\Scripts\\python.exe",
 		"git.ignoreLimitWarning": true,
 		"liveServer.settings.port": 5501
+	},
+	"launch": {
+		"version": "0.2.0",
+		"configurations": [
+			{
+				"name": "Python: Current File",
+				"type": "python",
+				"request": "launch",
+				"program": "${file}",
+				"console": "integratedTerminal"
+			}
+		]
 	}
 }

@@ -28,7 +28,9 @@ class DestructableObject(object):
                 self.attackDmg = attackDmg
                 DestructableObject.bounds = pygame.display.get_window_size()
                 DestructableObject.screen = screen
-
+                self.prevPos = self.currentPos
+                self.offset =(0,0)
+ 
         def dispose(self):
             self.isDisposed = True
         
@@ -43,7 +45,8 @@ class DestructableObject(object):
                self.health-=damage 
             self.checkHealth();
 
-        def CheckOutOfBounds(self,axis):
+        def CheckOutOfBounds(self,axis):            
+            self.offset = self.getoffset()
             switch = {
              "xmax": lambda:(self.currentPos[0] > DestructableObject.bounds[0] - self.image_size[0]),
              "xmin": lambda:(self.currentPos[0] < 1),
@@ -53,7 +56,9 @@ class DestructableObject(object):
             res =switch.get(axis, "Only xmin..max,ymax.. allowed")
             return res() 
 
-                     
+        def getoffset(self):
+            return (self.currentPos[0] - self.prevPos[0] , self.currentPos[1] - self.prevPos[1] )  
+
         def draw(self):
                 # DestructableObject.screen.blit(self.title,(self.currentPos[0]-13,self.currentPos[1]-15))  #print name & id  -35px behind object
                 DestructableObject.screen.blit(self.image,self.currentPos)

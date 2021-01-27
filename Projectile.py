@@ -3,7 +3,7 @@ import pygame
 
 class Projectile(Obstacle): 
         out_of_bounds = False
-        def __init__(self,screen,image,attackDmg=1,damage=0,health=1,movespeed=1,startPosition=(0.0,0.0),name="Projectile-"):            
+        def __init__(self,screen,image,attackDmg=1,damage=0,health=1,movespeed=-1,startPosition=(0.0,0.0),name="Projectile-"):            
                 super().__init__(screen,image,attackDmg,damage,health,movespeed,startPosition)        
                 self.name = name    
                 self.title = self.font.render(self.name,True, self.WHITE)
@@ -18,7 +18,7 @@ class Projectile(Obstacle):
                 self.updatePosition()
              
         def updatePosition(self):
-               self.currentPos=(self.currentPos[0],self.currentPos[1]-self.movespeed) 
+               self.currentPos=(self.currentPos[0],self.currentPos[1]+self.movespeed) 
                self.boundsCheck()
 
         def boundsCheck(self):

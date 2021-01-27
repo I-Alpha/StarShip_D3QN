@@ -22,8 +22,8 @@ class SpaceShipSprite(DestructableObject):
                self.lives =1 
                self.maxhp=health
                self.ammoCounter =5500
-               self.firedAt=0
-      
+               self.firedAt=0      
+               self.maxProjectiles_on_screen = 30
       def move(self,keys):
            event = "none"         
            if  isinstance(keys,type(pygame.key.get_pressed())):
@@ -40,7 +40,7 @@ class SpaceShipSprite(DestructableObject):
                               event ="down"
            elif isinstance(keys,str):
                   event = keys
-                  if keys=="space":
+                  if keys=="space" and len(SpaceShipSprite.liveProjectiles) < self.maxProjectiles_on_screen:
                         self.fireprojectile() 
 
            self.currentPos = self.updatePosition(event)
@@ -65,7 +65,7 @@ class SpaceShipSprite(DestructableObject):
             if(self.CheckOutOfBounds("xmax")): self.currentPos  =  (DestructableObject.bounds[0]-self.image_size[0]-5,self.currentPos[1])  
                
       def fireprojectile(self):      
-            newprojectile = Projectile(self.screen,r'Assets\imgs\bullet1.png',movespeed=8,startPosition=(self.currentPos[0],self.currentPos[1]-10))
+            newprojectile = Projectile(self.screen,r'Assets\imgs\bullet1.png',movespeed=-8,startPosition=(self.currentPos[0],self.currentPos[1]-10))
         
             if self.currentAmmo > 0 :
                    self.firedAt = pygame.time.get_ticks()

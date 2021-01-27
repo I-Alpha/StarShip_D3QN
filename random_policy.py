@@ -10,7 +10,7 @@ np.random.seed(0)
 def random_policy(episode):
 
     action_space = 6
-    state_space =6400
+    state_space =66
     max_steps = 1000
 
     for e in range(episode):

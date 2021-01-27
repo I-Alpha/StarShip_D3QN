@@ -1,3 +1,2 @@
-
-        print("\n\n\nError. No model specified but last checkpoint specified at ",args.last_epoch,".")
-        exit()
+X = Dense(self.network_size*2,  activation="relu",
+                  kernel_initializer='he_uniform')(X)

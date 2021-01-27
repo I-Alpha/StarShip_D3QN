@@ -5,7 +5,7 @@ import random
 import numpy as np
 from keras import Sequential
 from collections import deque
-from keras.layers import Dense, DepthwiseConv2D,  Lambda, Add, Average,   Conv1D, Conv2D, Subtract, Activation, LocallyConnected1D, Reshape, concatenate, Concatenate, Flatten, Input, Dropout, MaxPooling1D,  MaxPooling2D
+from keras.layers import Dense, DepthwiseConv2D,  Lambda, Add, Average,  TimeDistributed, Conv1D, Conv2D, Subtract, Activation, LocallyConnected1D, Reshape, concatenate, Concatenate, Flatten, Input, Dropout, MaxPooling1D,  MaxPooling2D
 import matplotlib.pyplot as plt
 from keras.optimizers import Adam
 from StarShip import StarShipGame
@@ -45,11 +45,11 @@ class DQN:
         self.state_space = state_space
         self.epsilon = 1
         self.gamma = .95
-        self.batch_size = 32
-        self.epsilon_min = .01
+        self.batch_size = 128
+        self.epsilon_min = .1
         self.epsilon_decay = 1e-5
         self.burn_limit = .001
-        self.learning_rate = .7e-4
+        self.learning_rate = 0.00025
         self.modelname ='D3QNmodel'
         self.memory = deque(maxlen=30000)
         if model == None:
@@ -72,7 +72,7 @@ class DQN:
         t = Reshape(input_shape)(digit_0)
 
         digit_a = Input(shape=input_shape)
-        X = Conv2D(64, 4, strides=(2), activation="relu",  padding="valid",
+        X =  Conv2D(64, 4, strides=(2), activation="relu",  padding="valid",
                    kernel_initializer='he_uniform', data_format='channels_first')(t)
         X = Conv2D(64, 3, strides=(1), activation="relu",  padding="valid",
                    kernel_initializer='he_uniform', data_format='channels_first')(X)
@@ -126,18 +126,18 @@ class DQN:
 
     
     
-    def build_modelGPU(self, input_shape=(4, 100, 100,), action_space=6, dueling=True):
+    def build_modelGPU(self, input_shape=(1,4,336,1), action_space=6, dueling=True):
         self.network_size = 256
 
-        X_input = Input(shape=(40000,))
+        X_input = Input(shape=(4*336,))
         X = X_input
         truncatedn_init = initializers.TruncatedNormal(0, 1e-2)
         x_init = initializers.GlorotUniform()
         const_init = initializers.constant(1e-2)
         X = Reshape(input_shape)(X)        
-        X = Conv2D(32, 8, strides=(4),padding="valid", activation="elu", kernel_initializer=x_init, data_format="channels_first")(X)
-        X = Conv2D(64, 4, strides=(2),padding="valid",activation="elu", kernel_initializer=x_init,   data_format="channels_first")(X)
-        X = Conv2D(128, 4, strides=(2),padding="valid",activation="elu",kernel_initializer=x_init,   data_format="channels_first")(X)
+        X = TimeDistributed(Conv2D(64, 4, strides=(2), activation="relu",  padding="same", kernel_initializer='he_uniform', data_format='channels_first'))(X)
+        # X = Conv2D(64, 4, strides=(2),padding="valid",activation="elu", kernel_initializer=x_init,   data_format="channels_first")(X)
+        # X = Conv2D(128, 4, strides=(2),padding="valid",activation="elu",kernel_initializer=x_init,   data_format="channels_first")(X) 3cnn
         X = Flatten()(X)
         # 'Dense' is the basic form of a neural network layer
         # Input Layer of state size(4) and Hidden Layer with 512 nodes         
@@ -168,42 +168,39 @@ class DQN:
         return model
 
     #cpu - channels
-    def build_modelCPU(self, input_shape=(100, 100, 4,), action_space=6, dueling=True):
+    def build_modelStateData(self, input_shape=(336,1,4), action_space=6, dueling=True):
         self.network_size = 256
 
-        X_input = Input(shape=(40000,))
+        X_input = Input(shape=(4*336,))
         X = X_input
-
         X = Reshape(input_shape)(X)
-        X = Conv2D(64, 5, strides=(3), activation="relu",
-                   padding="valid", kernel_initializer='he_uniform')(X)
-        X = Conv2D(64, 4, strides=(2), activation="relu",
-                   padding="valid", kernel_initializer='he_uniform')(X)
-        X = Conv2D(64, 3, strides=(1), activation="relu",
-                   padding="valid", kernel_initializer='he_uniform')(X)
+        X = Conv2D(64, (1,4), strides=(2), activation="relu",
+                   padding="valid", kernel_initializer='he_uniform')(X)  
+                   #try time-distrubuted    
         X = Flatten()(X)
         X = Dense(self.network_size*2,  activation="relu",
                   kernel_initializer='he_uniform')(X)
         X = Dense(self.network_size,  activation="relu",
                   kernel_initializer='he_uniform')(X)
         X = Dense(64,  activation="relu", kernel_initializer='he_uniform')(X)
-        state_value = Dense(1)(X)
-        state_value = Lambda(lambda s: K.expand_dims(
-            s[:, 0], -1), output_shape=(self.action_space,))(state_value)
-        action_advantage = Dense(
-            self.action_space, kernel_initializer='he_uniform')(X)
-        action_advantage = Lambda(lambda a: a[:, :] - K.mean(
-            a[:, :], keepdims=True), output_shape=(self.action_space,))(action_advantage)
+        
+        if dueling:
+            state_value = Dense(1,kernel_initializer='he_uniform')(X)
+            state_value = Lambda(lambda s: K.expand_dims(s[:, 0], -1), output_shape=(action_space,))(state_value)
 
-        out = Add()([state_value, action_advantage])
-        out = Dense(self.action_space, activation='linear')(out)
-        model = Model(inputs=X_input, outputs=out, name=self.modelname)
-        model.compile(loss="mse", optimizer=RMSprop(
-            lr=0.00025, rho=0.95, epsilon=0.01), metrics=["accuracy"])
-        x = model.summary()
-        global file_writer
-        file_writer.add_summary(x)
-        x
+            action_advantage = Dense(action_space,kernel_initializer='he_uniform')(X)
+            action_advantage = Lambda(lambda a: a[:, :] - K.mean(a[:, :], keepdims=True), output_shape=(action_space,))(action_advantage)
+
+            X = Add()([state_value, action_advantage])
+        else:
+            # Output Layer with # of actions: 2 nodes (left, right)
+            X = Dense(action_space, activation="relu",kernel_initializer='he_uniform')(X)
+
+        model = Model(inputs = X_input, outputs = X, name = 'OneCNN_model')
+        model.compile(loss="mean_squared_error", optimizer=Adam(lr=self.learning_rate),  metrics=["accuracy"])
+        
+        # model.compile(loss="mean_squared_error", optimizer=Adam(lr=0.00025,epsilon=0.01), metrics=["accuracy"])
+        model.summary()
         return model
 
     def remember(self, state, action, reward, next_state, done):
@@ -280,7 +277,7 @@ gl_loss=0
 def train_dqn(episode,  graphics=True, ch=300,  lchk = 0 , model=None):    
     loss = []     
     action_space = 6
-    state_space = 40000
+    state_space = 4*336
     max_steps = 98*9
     # agent =ic(DQN(action_space, state_space,  model=ic(keras.models.load_model('CNN-990--0.40.h5'))))
     # for e in range(990,episode):
@@ -307,7 +304,7 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk = 0 , model=None):
                 env.save = False
             action = agent.act(state)
             reward, next_state, done = env.stepNew(action)
-            next_state = env.getPixelsOnScreenNew()
+            next_state = env.getEnvStateOnScreen()
             score += reward
             funcs = [lambda: (np.reshape(next_state, (1, state_space))), lambda: (
                 np.reshape(next_state, (1, len(next_state))))]

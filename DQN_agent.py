@@ -51,7 +51,7 @@ class DQN:
         self.burn_limit = .001
         self.learning_rate = 0.00025
         self.modelname ='D3QNmodel'
-        self.memory = deque(maxlen=30000)
+        self.memory = deque(maxlen=100000)
         if model == None:
             self.model = self.build_modelGPU()
             # self.target_model = self.build_modelGPU()
@@ -62,7 +62,7 @@ class DQN:
 
     def saveModel(self, score="n.a"):
         print(self.model.name+"-" + str(DQN.currEpisode)+str(int(score)) + " saved! ")
-        self.model.save("savedModels\\"+self.model.name+"\\CNN-{}-{:.2f}.h5".format(DQN.currEpisode, score), overwrite=True)
+        self.model.save("savedModels\\"+self.model.name+"\\one_cnn_stateData-{}-{:.2f}.h5".format(DQN.currEpisode, self.average), overwrite=True)
 
     def build_modelPar(self,input_shape=(4, 100, 100,)):
 
@@ -126,22 +126,24 @@ class DQN:
 
     
     
-    def build_modelGPU(self, input_shape=(1,4,336,1), action_space=6, dueling=True):
+    def build_modelGPU(self, input_shape=(4,336,1), action_space=6, dueling=True):
         self.network_size = 256
 
         X_input = Input(shape=(4*336,))
         X = X_input
         truncatedn_init = initializers.TruncatedNormal(0, 1e-2)
-        x_init = initializers.GlorotUniform()
+        x_init ="he_uniform"
         const_init = initializers.constant(1e-2)
         X = Reshape(input_shape)(X)        
-        X = TimeDistributed(Conv2D(64, 4, strides=(2), activation="relu",  padding="same", kernel_initializer='he_uniform', data_format='channels_first'))(X)
-        # X = Conv2D(64, 4, strides=(2),padding="valid",activation="elu", kernel_initializer=x_init,   data_format="channels_first")(X)
+        X = TimeDistributed(Dense(4, activation="softmax", kernel_initializer=x_init))(X)
+            # X = Conv2D(64, 4, strides=(2),padding="valid",activation="elu", kernel_initializer=x_init,   data_format="channels_first")(X)
         # X = Conv2D(128, 4, strides=(2),padding="valid",activation="elu",kernel_initializer=x_init,   data_format="channels_first")(X) 3cnn
         X = Flatten()(X)
         # 'Dense' is the basic form of a neural network layer
         # Input Layer of state size(4) and Hidden Layer with 512 nodes         
-        X = Dense(512, activation="elu", kernel_initializer=x_init)(X) 
+        X = Dense(512, activation="relu", kernel_initializer=x_init)(X) 
+        X = Dense(128, activation="relu", kernel_initializer=x_init)(X) 
+        X = Dense(64, activation="relu", kernel_initializer=x_init)(X) 
         # # Hidden layer with 256 nodes
         # X = Dense(256, activation="relu", kernel_initializer=truncatedn_init, bias_initializer=const_init)(X)
         
@@ -158,7 +160,7 @@ class DQN:
             X = Add()([state_value, action_advantage])
         else:
             # Output Layer with # of actions: 2 nodes (left, right)
-            X = Dense(action_space, activation="elu",kernel_initializer='he_uniform', bias_initializer=const_init)(X)
+            X = Dense(action_space, activation="relu",kernel_initializer='he_uniform', bias_initializer=const_init)(X)
 
         model = Model(inputs = X_input, outputs = X, name = '3CNN_model')
         model.compile(loss="mean_squared_error", optimizer=Adam(lr=self.learning_rate),  metrics=["accuracy"])

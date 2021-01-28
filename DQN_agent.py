@@ -44,14 +44,14 @@ class DQN:
         self.action_space = action_space
         self.state_space = state_space
         self.epsilon = 1
-        self.gamma = .95
+        self.gamma = .98
         self.batch_size = 128
         self.epsilon_min = .1
         self.epsilon_decay = 1e-5
         self.burn_limit = .001
         self.learning_rate = 0.00025
         self.modelname ='D3QNmodel'
-        self.memory = deque(maxlen=100000)
+        self.memory = deque(maxlen=1000000)
         if model == None:
             self.model = self.build_modelGPU()
             # self.target_model = self.build_modelGPU()
@@ -61,9 +61,13 @@ class DQN:
 
 
     def saveModel(self, score="n.a"):
-        print(self.model.name+"-" + str(DQN.currEpisode)+str(int(score)) + " saved! ")
-        self.model.save("savedModels\\"+self.model.name+"\\one_cnn_stateData-{}-{:.2f}.h5".format(DQN.currEpisode, self.average), overwrite=True)
-
+        print("saving " + self.model.name + "-" + str(DQN.currEpisode)+str(int(score)) + "...." )
+        try:
+            self.model.save("savedModels\\"+self.model.name+"_one_cnn_stateData-{}-{.2f}.h5".format(DQN.currEpisode, self.average[-1]), overwrite=True)
+            print(self.model.name+"-" + str(DQN.currEpisode)+str(int(score)) + " saved! ")
+        except:
+            print(self.model.name+"-" + str(DQN.currEpisode)+str(int(score)) + " not saved! ")
+            pass
     def build_modelPar(self,input_shape=(4, 100, 100,)):
 
         self.network_size = 12*4 + 6*4 + 12
@@ -132,18 +136,21 @@ class DQN:
         X_input = Input(shape=(4*336,))
         X = X_input
         truncatedn_init = initializers.TruncatedNormal(0, 1e-2)
-        x_init ="he_uniform"
-        const_init = initializers.constant(1e-2)
-        X = Reshape(input_shape)(X)        
-        X = TimeDistributed(Dense(4, activation="softmax", kernel_initializer=x_init))(X)
+        x_init ="he_uniform" 
+        y_init = initializers.glorot_uniform()
+        # const_init = initializers.constant(1e-2)
+        # X = Reshape(input_shape)(X)        
+        X = Dense(512, activation="relu", kernel_initializer=x_init)(X)
+        X = Dense(256, activation="relu", kernel_initializer=x_init)(X)
             # X = Conv2D(64, 4, strides=(2),padding="valid",activation="elu", kernel_initializer=x_init,   data_format="channels_first")(X)
         # X = Conv2D(128, 4, strides=(2),padding="valid",activation="elu",kernel_initializer=x_init,   data_format="channels_first")(X) 3cnn
-        X = Flatten()(X)
+        # X = Flatten()(X)
         # 'Dense' is the basic form of a neural network layer
         # Input Layer of state size(4) and Hidden Layer with 512 nodes         
-        X = Dense(512, activation="relu", kernel_initializer=x_init)(X) 
-        X = Dense(128, activation="relu", kernel_initializer=x_init)(X) 
-        X = Dense(64, activation="relu", kernel_initializer=x_init)(X) 
+        # X = Dense(512, activation="relu", kernel_initializer=x_init)(X) 
+        # X = Dense(128, activation="relu", kernel_initializer=x_init)(X) 
+        # X = Dense(64, activation="relu", kernel_initializer=x_init)(X)                
+        X = Dense(64, activation="relu", kernel_initializer=x_init)(X)       
         # # Hidden layer with 256 nodes
         # X = Dense(256, activation="relu", kernel_initializer=truncatedn_init, bias_initializer=const_init)(X)
         
@@ -170,7 +177,7 @@ class DQN:
         return model
 
     #cpu - channels
-    def build_modelStateData(self, input_shape=(336,1,4), action_space=6, dueling=True):
+    def build_modelStateData(self, input_shape=(4,336,1), action_space=6, dueling=True):
         self.network_size = 256
 
         X_input = Input(shape=(4*336,))

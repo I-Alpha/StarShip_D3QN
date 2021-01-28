@@ -58,7 +58,7 @@ class ObstacleGenerator():
     def updateAll(self):
            for i in ObstacleGenerator.liveObstacles:
                i.updatePosition()               
-               ObstacleGenerator.fails = Obstacle.fails;
+               ObstacleGenerator.fails += Obstacle.fails;
            self.updateList() 
 
     def updateList(self):           

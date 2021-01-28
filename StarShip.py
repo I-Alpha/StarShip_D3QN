@@ -225,9 +225,11 @@ class StarShipGame:
                         sys.exit()  
                     if event.key == K_s:  
                         self.save=True
-                  
-                          
-            self.obstacleGenerator.updateAll()
+           
+            self.obstacleGenerator.updateAll()       
+            if (ObstacleGenerator.fails) > 0 :
+                self.done=True           
+                return   
             StarShipGame.liveProjectiles=self.spaceShipSprite.liveProjectiles             
             ObstacleGenerator.liveProjectiles=StarShipGame.liveProjectiles        
             hit = self.obstacleGenerator.checkHits()       
@@ -238,8 +240,7 @@ class StarShipGame:
                 self.reward-=.2
                 ObstacleGenerator.p_out_of_bounds=0
             self.checkHits()
-            if (ObstacleGenerator.fails) > 0 :
-                   self.done=True
+            
 
     def play(self):
         self.playing = True     
@@ -341,6 +342,7 @@ class StarShipGame:
                      self.done= True
                      return True
                 if ObstacleGenerator.fails>0:
+                    self.reward -=obstacleGenerator.fails * 0.5
                     self.done =True
                 return False
             
@@ -358,7 +360,7 @@ class StarShipGame:
                     StarShipGame.liveObstacles =self.obstacleGenerator.liveObstacles                 
                 
                     if alive :
-                        self.reward-=.2
+                        self.reward-=.3
                     else: 
                         self.reward-=.5
 

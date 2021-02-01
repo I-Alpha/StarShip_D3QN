@@ -5,7 +5,7 @@ import random
 import numpy as np
 from keras import Sequential
 from collections import deque
-from keras.layers import Dense, DepthwiseConv2D,  Lambda, Add, Average,  TimeDistributed, Conv1D, Conv2D, Subtract, Activation, LocallyConnected1D, Reshape, concatenate, Concatenate, Flatten, Input, Dropout, MaxPooling1D,  MaxPooling2D
+from keras.layers import Dense, DepthwiseConv2D,  Lambda, Add, Average, LSTM, TimeDistributed, Conv1D, Conv2D, Subtract, Activation, LocallyConnected1D, Reshape, concatenate, Concatenate, Flatten, Input, Dropout, MaxPooling1D,  MaxPooling2D
 import matplotlib.pyplot as plt
 from keras.optimizers import Adam
 from StarShip import StarShipGame
@@ -32,7 +32,16 @@ import datetime
 from keras.callbacks import History 
 env = StarShipGame(True)
  
+HUBER_LOSS_DELTA = 1.0
+def huber_loss(y_true, y_predict):
+        err = y_true - y_predict
 
+        cond = K.abs(err) < HUBER_LOSS_DELTA
+        L2 = 0.5 * K.square(err)
+        L1 = HUBER_LOSS_DELTA * (K.abs(err) - 0.5 * HUBER_LOSS_DELTA)
+        loss = tf.where(cond, L2, L1)
+
+        return K.mean(loss)
 class DQN:
 
     """ Implementation of deep q learning algorithm """
@@ -45,19 +54,22 @@ class DQN:
         self.state_space = state_space
         self.epsilon = 1
         self.gamma = .98
-        self.batch_size = 128
-        self.epsilon_min = .1
+        self.batch_size = 98
+        self.epsilon_min = .01
         self.epsilon_decay = 1e-5
         self.burn_limit = .001
         self.learning_rate = 0.00025
         self.modelname ='D3QNmodel'
-        self.memory = deque(maxlen=1000000)
+        self.memory = deque(maxlen=100000) 
+        self.optimizer_model = 'Adam'
+
         if model == None:
-            self.model = self.build_modelGPU()
+            self.model = self.build_modelPar1()
             # self.target_model = self.build_modelGPU()
         else:
             self.model = model 
             # self.target_model =model 
+       
 
 
     def saveModel(self, score="n.a"):
@@ -68,7 +80,62 @@ class DQN:
         except:
             print(self.model.name+"-" + str(DQN.currEpisode)+str(int(score)) + " not saved! ")
             pass
-    def build_modelPar(self,input_shape=(4, 100, 100,)):
+    
+
+        
+    def build_modelPar1(self,dueling = True,input_shape=(4,336,1)):
+
+        if dueling:
+            x = Input(shape=(self.state_space,))
+            t = Reshape(input_shape)(x)
+            # a series of fully connected layer for estimating V(s)
+
+            y11 = Dense(64, activation='relu')(t)
+            y12 = Dense(64, activation='relu')(y11)        
+            y12= Flatten()(y11)     
+            y13 = Dense(1, activation="linear")(y12)
+
+            # a series of fully connected layer for estimating A(s,a)
+
+            y21 = Dense(64, activation='relu')(x)
+            y22 = Dense(64, activation='relu')(y21)
+            y23 = Dense(1, activation="linear")(y22)
+            
+            # a series of fully connected layer for estimating B(s,a)
+
+            y30=  TimeDistributed(Dense(64,activation='relu'))(t)
+            y31=  TimeDistributed(Dense(64,activation='relu'))(y30)
+            y32= Flatten()(y31)
+            y33= Dense(self.action_space, activation='linear')(y32) 
+
+            w = Concatenate(axis=-1)([y13,y33])            
+
+
+            # combine V(s) and A(s,a) to get Q(s,a)
+            z = Lambda(lambda a: K.expand_dims(a[:, 0], axis=-1) + a[:, 1:] - K.mean(a[:, 1:], keepdims=True),
+                       output_shape=(self.action_space))(w)
+        else:
+            x = Input(shape=(self.state_space,))
+
+            # a series of fully connected layer for estimating Q(s,a)
+            y1 = Dense(64, activation='relu')(x)
+            y2 = Dense(64, activation='relu')(y1)
+            z = Dense(self.action_space, activation="linear")(y2)
+
+        model = Model(inputs=x, outputs=z)
+
+        if self.optimizer_model == 'Adam':
+            optimizer = Adam(lr=self.learning_rate, clipnorm=1.)
+        elif self.optimizer_model == 'RMSProp':
+            optimizer = RMSprop(lr=self.learning_rate, clipnorm=1.)
+        else:
+            print('Invalid optimizer!')
+
+        model.compile(loss=huber_loss, optimizer=optimizer)
+        model.summary()
+        return model
+
+    def build_modelPar(self,input_shape=(4, 336, 1)):
 
         self.network_size = 12*4 + 6*4 + 12
 
@@ -130,7 +197,7 @@ class DQN:
 
     
     
-    def build_modelGPU(self, input_shape=(4,1,336,1), action_space=6, dueling=True):
+    def build_modelGPU(self, input_shape=(336,4), action_space=6, dueling=True):
         self.network_size = 256
 
         X_input = Input(shape=(4*336,))
@@ -140,19 +207,20 @@ class DQN:
         y_init = initializers.glorot_uniform()
         const_init = initializers.constant(1e-2)
         X = Reshape(input_shape)(X)  
-        X =TimeDistributed(Dense(4,  activation="relu", bias_initializer=const_init, use_bias=True,  kernel_initializer=truncatedn_init))(X)        
-        X = Flatten()(X) 
-        X =Dense(512, activation="relu", kernel_initializer=x_init)(X)
-            # X = Conv2D(64, 4, strides=(2),padding="valid",activation="elu", kernel_initializer=x_init,   data_format="channels_first")(X)
+        # X =Conv1D(4,(4),(4),activation="relu",) (X)             
+        # X = Conv2D(1, (1,4), strides=(1,1),padding="same",activation="relu", kernel_initializer=x_init,   data_format="channels_first")(X)
+        X = LSTM(4, return_sequences=True, return_state=True)(X)
+        X = Flatten()(X)
+        X = Dense(512, activation="relu", kernel_initializer=x_init)(X)            
+        X =Dense(256, activation="relu", kernel_initializer=x_init)(X)
+        # X = Conv2D(64, 4, strides=(2),padding="valid",activation="elu", kernel_initializer=x_init,   data_format="channels_first")(X)
         # X = Conv2D(128, 4, strides=(2),padding="valid",activation="elu",kernel_initializer=x_init,   data_format="channels_first")(X) 3cnn
-        
         # 'Dense' is the basic form of a neural network layer
         # Input Layer of state size(4) and Hidden Layer with 512 nodes         
         # X = Dense(512, activation="relu", kernel_initializer=x_init)(X) 
-        # X = Dense(128, activation="relu", kernel_initializer=x_init)(X) 
         # X = Dense(64, activation="relu", kernel_initializer=x_init)(X)                
-        X = Dense(256, activation="relu", kernel_initializer=x_init)(X)      
-        X = Dense(64, activation="relu", kernel_initializer=x_init)(X)        
+        X = Dense(256, activation="relu", kernel_initializer=x_init)(X)                  
+        X = Dense(64, activation="relu", kernel_initializer=x_init)(X)              
         # # Hidden layer with 256 nodes
         # X = Dense(256, activation="relu", kernel_initializer=truncatedn_init, bias_initializer=const_init)(X)
         

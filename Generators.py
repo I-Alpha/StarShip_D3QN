@@ -112,7 +112,6 @@ class ObstacleGenerator():
                 obXcoord = i.currentPos[0]
                 obHeight = i.image_size[1]
                 obWidth = i.image_size[0] 
-
                 if any(((x.currentPos[0] + x.image_size[0]>=obXcoord) and (x.currentPos[0] <= obXcoord + obWidth) and (x.currentPos[1] + x.image_size[1]>=obYcoord) and (x.currentPos[1] <= obYcoord + obHeight)) for x in ObstacleGenerator.liveProjectiles):
                     x =next(x for x in ObstacleGenerator.liveProjectiles if ((x.currentPos[0] + x.image_size[0]>=obXcoord) and (x.currentPos[0] <= obXcoord + obWidth) and (x.currentPos[1] + x.image_size[1]>=obYcoord) and (x.currentPos[1] <= obYcoord + obHeight),None))
                     i.health -= x.attackDmg

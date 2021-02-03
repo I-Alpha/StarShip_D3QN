@@ -8,8 +8,8 @@ import numpy as np
 import copy 
 import pandas as pd
 import cv2    
- 
-
+import time
+  
 class StarShipGame:
     WHITE = (255, 255, 255)
     BLACK = (0, 0, 0)
@@ -33,7 +33,7 @@ class StarShipGame:
         self.spaceShipSprite = SpaceShipSprite(StarShipGame.screen,r'Assets\imgs\triangleShip.png',startPosition=((screen_size[0]/2)-60,screen_size[1]/2))   
         self.obstacleGenerator = ObstacleGenerator(StarShipGame.screen,r'Assets\imgs\brick.png')
         self.screen_size = screen_size
-        self.FPS = 60
+        self.FPS = 100
         self.clock = pygame.time.Clock()
         pygame.display.set_caption("StarShip")
         self.obstacleGenerator.generate(0); 
@@ -45,7 +45,9 @@ class StarShipGame:
         self.image_memory = np.zeros((self.REM_STEP, self.ROWS, self.COLS))
         self.state_size = (self.REM_STEP, self.ROWS, self.COLS)
         self.x =0   
-
+        self.time_multipliyer= 1 
+        self.time_time1 = 0
+        self.time_time2= 0
     def vectorize_func(self,m):
         return m/255
     
@@ -184,7 +186,7 @@ class StarShipGame:
                     "live_projectiles_miss": self.obstacleGenerator.p_out_of_bounds, 
                     "hits":self.obstacleGenerator.hits,   
                     "fails":self.obstacleGenerator.fails ,
-                    "clock_time":self.clock.get_time(),
+                    "clock_time":pygame.time.get_ticks()/1000,
                     "score":self.score,                     
                 }
         for m, (k, v) in enumerate(obs_collection.items()):
@@ -213,8 +215,25 @@ class StarShipGame:
         self.image_memory[0,:,:] = state
         #np.select(conditions, choices, default=0)
         return np.expand_dims(self.image_memory, axis=0)
-
+    
     def game_loop(self):
+            
+           
+            self.obstacleGenerator.updateAll()       
+            if (ObstacleGenerator.fails) > 0 :
+                self.done=True           
+                return   
+            StarShipGame.liveProjectiles=self.spaceShipSprite.liveProjectiles             
+            ObstacleGenerator.liveProjectiles=StarShipGame.liveProjectiles        
+            hit = self.obstacleGenerator.checkHits()       
+            if hit:
+                self.reward+=.4 + (self.deadObstacles/self.time_multipliyer) *10
+                hit=False            
+            if ObstacleGenerator.p_out_of_bounds:
+                self.reward-=.2
+                ObstacleGenerator.p_out_of_bounds=0
+            self.checkHits()
+
             for event in pygame.event.get():
                 if event.type == QUIT:           # terminates the game when game window is closed
                     pygame.quit()
@@ -225,22 +244,6 @@ class StarShipGame:
                         sys.exit()  
                     if event.key == K_s:  
                         self.save=True
-           
-            self.obstacleGenerator.updateAll()       
-            if (ObstacleGenerator.fails) > 0 :
-                self.done=True           
-                return   
-            StarShipGame.liveProjectiles=self.spaceShipSprite.liveProjectiles             
-            ObstacleGenerator.liveProjectiles=StarShipGame.liveProjectiles        
-            hit = self.obstacleGenerator.checkHits()       
-            if hit:
-                self.reward+=.5
-                hit=False            
-            if ObstacleGenerator.p_out_of_bounds:
-                self.reward-=.2
-                ObstacleGenerator.p_out_of_bounds=0
-            self.checkHits()
-            
 
     def play(self):
         self.playing = True     
@@ -266,48 +269,9 @@ class StarShipGame:
                 pygame.display.update()
         pygame.quit()
     
-    # def reset(self):
-        
-    #     self.spaceShipSprite = SpaceShipSprite(StarShipGame.screen,r'Assets\imgs\triangleShip.png',startPosition=(self.screen_size[0]/2,self.screen_size[1]/2))   
-    #     SpaceShipSprite.liveProjectiles=[]  
-    #     ObstacleGenerator.reset()
-    #     self.obstacleGenerator = ObstacleGenerator(StarShipGame.screen,r'Assets\imgs\brick.png')
-    #     StarShipGame.liveObstacles = []
-    #     StarShipGame.deadObstacles = 0
-    #     StarShipGame.liveProjectiles =[]      
-    #     ObstacleGenerator.fails=0
-    #     Obstacle.fails=0
-    #     self.score =0
-    #     self.hit=0
-    #     self.fails=0
-    #     self.reward= 0
-    #     StarShipGame.fails =0
-    #     self.done=False
-    #     self.clock = pygame.time.Clock()     
-    #     self.obstacleGenerator.generate(0);
-    #     StarShipGame.liveObstacles =  self.obstacleGenerator.liveObstacles 
-    #     obs_collection=[]
-    #     for obs in  self.obstacleGenerator.liveObstacles :
-    #            x,y= self.Obj_state(obs)
-    #            obs_collection.append([x,y])
-    #     agentX,agentY = self.Obj_state(self.spaceShipSprite)    
-    #     state = [
-    #         #*self.getPixelsOnScreen()              
-	# 	    [agentX,agentY],
-    #         *obs_collection, 
-    #         [-1,self.obstacleGenerator.hits],          
-    #         [-1,len(self.obstacleGenerator.liveObstacles)],
-    #         [-1,(self.obstacleGenerator.deadObstacles)], 
-    #         [-1,self.obstacleGenerator.fails] ,
-    #         [-1,self.clock.get_time()] 
-    #       ]
-        
-    #     pygame.Surface.unlock(self.screen)
-    #     # for i in obs_collection:
-    #     #     state.append(i) 
-    #     return state
     
-    def resetNew(self):        
+    def resetNew(self):   
+        pygame.init()     
         self.spaceShipSprite = SpaceShipSprite(StarShipGame.screen,r'Assets\imgs\triangleShip.png',startPosition=(self.screen_size[0]/2,self.screen_size[1]/2))   
         SpaceShipSprite.liveProjectiles=[]  
         ObstacleGenerator.reset()
@@ -321,11 +285,16 @@ class StarShipGame:
         self.hit=0
         self.fails=0
         self.x =0
+        self.action=0
+        self.key=0
         self.score =0
         self.state_size = (self.REM_STEP, self.ROWS, self.COLS)
         self.reward= 0
+        self.time_multipliyer =1
         StarShipGame.fails =0
-        self.done=False
+        self.done=False  
+        self.time_time1 = time.time()
+        self.time_time2 = time.time()
         self.clock = pygame.time.Clock()     
         self.obstacleGenerator.generate(0);
         StarShipGame.liveObstacles =  self.obstacleGenerator.liveObstacles  
@@ -342,7 +311,7 @@ class StarShipGame:
                      self.done= True
                      return True
                 if ObstacleGenerator.fails>0:
-                    self.reward -=obstacleGenerator.fails * 0.5
+                    self.reward -= ObstacleGenerator.fails * 0.5
                     self.done =True
                 return False
             

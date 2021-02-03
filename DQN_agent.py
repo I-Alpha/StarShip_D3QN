@@ -5,7 +5,7 @@ import random
 import numpy as np
 from keras import Sequential
 from collections import deque
-from keras.layers import Dense, DepthwiseConv2D,  Lambda, Add, Average, LSTM, TimeDistributed, Conv1D, Conv2D, Subtract, Activation, LocallyConnected1D, Reshape, concatenate, Concatenate, Flatten, Input, Dropout, MaxPooling1D,  MaxPooling2D
+from keras.layers import Dense, DepthwiseConv2D,  Lambda,  Add, Average, LSTM, TimeDistributed, Conv1D, Conv2D, Subtract, Activation, LocallyConnected1D, Reshape, concatenate, Concatenate, Flatten, Input, Dropout, MaxPooling1D,  MaxPooling2D
 import matplotlib.pyplot as plt
 from keras.optimizers import Adam
 from StarShip import StarShipGame
@@ -29,7 +29,9 @@ import pylab
 import keras
 from tensorflow.keras import initializers
 import datetime
+import time
 from keras.callbacks import History 
+
 env = StarShipGame(True)
  
 HUBER_LOSS_DELTA = 1.0
@@ -54,17 +56,17 @@ class DQN:
         self.state_space = state_space
         self.epsilon = 1
         self.gamma = .98
-        self.batch_size = 98
-        self.epsilon_min = .01
+        self.batch_size = 64
+        self.epsilon_min = .15
         self.epsilon_decay = 1e-5
         self.burn_limit = .001
-        self.learning_rate = 0.00025
+        self.learning_rate = .0004
         self.modelname ='D3QNmodel'
-        self.memory = deque(maxlen=100000) 
-        self.optimizer_model = 'Adam'
+        self.memory = deque(maxlen=90000) 
+        self.optimizer_model = 'RMSProp'
 
         if model == None:
-            self.model = self.build_modelPar1()
+            self.model = self.build_modelPar()
             # self.target_model = self.build_modelGPU()
         else:
             self.model = model 
@@ -75,7 +77,7 @@ class DQN:
     def saveModel(self, score="n.a"):
         print("saving " + self.model.name + "-" + str(DQN.currEpisode)+str(int(score)) + "...." )
         try:
-            self.model.save("savedModels\\"+self.model.name+"_one_cnn_stateData-{}-{}.h5".format(DQN.currEpisode, self.average[-1]), overwrite=True)
+            self.model.save("savedModels\\"+self.model.name+"_3PCNN-{}-{}.h5".format(DQN.currEpisode, self.average[-1]), overwrite=True)
             print(self.model.name+"-" + str(DQN.currEpisode)+str(int(score)) + " saved! ")
         except:
             print(self.model.name+"-" + str(DQN.currEpisode)+str(int(score)) + " not saved! ")
@@ -83,32 +85,39 @@ class DQN:
     
 
         
-    def build_modelPar1(self,dueling = True,input_shape=(4,336,1)):
-
+    def build_modelPar1(self,dueling = True,input_shape=(1,4,336)):
+        truncatedn_init = initializers.TruncatedNormal(0, 1e-2)
+        x_init ="he_uniform" 
+        y_init = initializers.glorot_uniform()
+        const_init = initializers.constant(1e-2)
         if dueling:
             x = Input(shape=(self.state_space,))
             t = Reshape(input_shape)(x)
-            # a series of fully connected layer for estimating V(s)
-
-            y11 = Dense(64, activation='relu')(t)
-            y12 = Dense(64, activation='relu')(y11)        
-            y12= Flatten()(y11)     
-            y13 = Dense(1, activation="linear")(y12)
+            # a series of fully connected layer for estimating V(s) 
+            y11= Dense(128, activation='relu',kernel_initializer=truncatedn_init, bias_initializer=const_init, use_bias=True)(t)
+            y12 = Dense(128, activation='relu',kernel_initializer=truncatedn_init, bias_initializer=const_init, use_bias=True)(y11)  
+            y13=  Flatten()(y12)   
+            y14 = Dense(self.action_space, activation="linear",kernel_initializer=x_init)(y13)
 
             # a series of fully connected layer for estimating A(s,a)
-
-            y21 = Dense(64, activation='relu')(x)
-            y22 = Dense(64, activation='relu')(y21)
-            y23 = Dense(1, activation="linear")(y22)
+           
+           
+            y20 = Flatten()(x)
+            y21 = Dense(256, activation='relu',kernel_initializer=truncatedn_init, bias_initializer=const_init, use_bias=True)(y20)
+            y22 = Dense(128, activation='relu',kernel_initializer=truncatedn_init, bias_initializer=const_init, use_bias=True)(y21)
+            y23 = Dense(1, activation="linear",kernel_initializer=x_init)(y22)
             
             # a series of fully connected layer for estimating B(s,a)
 
             y30=  TimeDistributed(Dense(64,activation='relu'))(t)
             y31=  TimeDistributed(Dense(64,activation='relu'))(y30)
-            y32= Flatten()(y31)
-            y33= Dense(self.action_space, activation='linear')(y32) 
+            y32=  Dense(1,activation='softmax')(y31)
+            y33= Flatten()(y32)
+            y34=  Dense(256,activation='relu')(y33) 
+            y35=  Dense(64,activation='relu')(y34)            
+            y36= Dense(self.action_space, activation='linear')(y35) 
 
-            w = Concatenate(axis=-1)([y13,y33])            
+            w = Concatenate(axis=-1)([y23,y14])            
 
 
             # combine V(s) and A(s,a) to get Q(s,a)
@@ -135,43 +144,45 @@ class DQN:
         model.summary()
         return model
 
-    def build_modelPar(self,input_shape=(4, 336, 1)):
+    def build_modelPar(self,input_shape=(4, 336,1)):
 
-        self.network_size = 12*4 + 6*4 + 12
 
-        digit_0 = Input(shape=(40000,))
+
+        digit_0 = Input(shape=(4*336,))
         t = Reshape(input_shape)(digit_0)
+        
+        x= Dense(64, activation="relu")(t)
+        x= Dense(64, activation="relu")(x)
+        out_a=Flatten()(x)
 
-        digit_a = Input(shape=input_shape)
-        X =  Conv2D(64, 4, strides=(2), activation="relu",  padding="valid",
-                   kernel_initializer='he_uniform', data_format='channels_first')(t)
-        X = Conv2D(64, 3, strides=(1), activation="relu",  padding="valid",
-                   kernel_initializer='he_uniform', data_format='channels_first')(X)
-        out_a = Flatten()(X)
+        x = Conv2D(1,(4,1),strides=(4,1),  activation="relu")(t)
+        x=Dense(64, activation="relu")(x)
+        x=Dense(64, activation="relu")(x)
+        out_b=Flatten()(x)
+       
+        x = Conv2D(1,(4,1),strides=(4,1),  activation="relu")(t)
+        x = Dense(64, activation="relu")(x)
+        x = Dense(64, activation="relu")(x)      
+        out_c=Flatten()(x)          
 
-        digit_b = Input(shape=input_shape)
-        x = Flatten()(t)
-        x = Dense(32, activation="relu")(x)
-        out_b = Dense(32, activation="relu")(x)        
-
-        concatenated = concatenate([out_a, out_b])
+        concatenated = concatenate([out_a, out_b,out_c])
         # model_final.add(Reshape((4,11,2), input_shape=(88,)))
         # model_final.add(concatted)
         # model_final.add(Flatten())
         # model_final.add(Dense(256, activation='relu', kernel_initializer='he_uniform'))
         # model_final.add(Dense(64, activation='relu', kernel_initializer='he_uniform'))
-        out_c = Dense(128, activation='relu',
-                      kernel_initializer='he_uniform')(concatenated)
-        
-        out_c = Dense(64, activation='relu',
-                      kernel_initializer='he_uniform')(out_c)
+        out_d = Flatten()(concatenated)
+        out_d = Dense(512, activation='relu',
+                      kernel_initializer='he_uniform')(out_d) 
 
-        state_value = Dense(1, kernel_initializer='he_uniform')(out_c)
+
+         
+        state_value = Dense(1, kernel_initializer='he_uniform')(out_d)
         state_value = Lambda(lambda s: K.expand_dims(
             s[:, 0], -1), output_shape=(self.action_space,))(state_value)
 
         action_advantage = Dense(
-            self.action_space, activation='linear', kernel_initializer='he_uniform')(out_c)
+            self.action_space, activation='linear', kernel_initializer='he_uniform')(out_d)
         action_advantage = Lambda(lambda a: a[:, :] - K.mean(
             a[:, :], keepdims=True), output_shape=(self.action_space,))(action_advantage)
 
@@ -179,8 +190,8 @@ class DQN:
 
         model_final = Model([digit_0], out,name='ParallelCNNmodel')
 
-        model_final.compile(loss="mse", optimizer=RMSprop(
-            lr=self.learning_rate, rho=0.95, decay=0.0, epsilon=self.epsilon), metrics=["accuracy"])
+        model_final.compile(loss=huber_loss, optimizer=Adam( lr=self.learning_rate),metrics=["accuracy"])
+        #RMSprop( lr=self.learning_rate, rho=0.95, decay=1e-7, epsilon=self.epsilon), metrics=["accuracy"])
         print(model_final.summary())
         return model_final
 
@@ -375,9 +386,18 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk = 0 , model=None):
         #           state = func()
         #     except:
         #         pass
+
         state = funcs[0]()
         score = 0
+
         for i in range(max_steps):
+            if i !=0:
+                if i % 98==0: 
+                   env.time_multipliyer *= 1.4                 
+                if i % 4 ==0: 
+                    env.reward +=  env.time_multipliyer * 0.4 + i *.08
+          
+
             if (env.save):
                 agent.saveModel(score)
                 env.save = False
@@ -396,10 +416,7 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk = 0 , model=None):
             next_state = funcs[0]()
             agent.remember(state, action, reward, next_state, done)
             state = next_state
-            global gl_score 
-            gl_score = score
-            global gl_total_frames
-            gl_total_frames = i
+          
             agent.replay()
             
             # Add values to Tensorboard
@@ -407,6 +424,7 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk = 0 , model=None):
         
             average  = 0
             if done:
+                
                 average = agent.PlotModel(score,e)
                 print("episode: {}/{}, score: {}, average: {} , time-step-reached: {} ".format(e, episode, score, average,i))
                 # print("Max: ",i," Ep: ",e)

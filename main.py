@@ -20,10 +20,10 @@ parser = argparse.ArgumentParser(
     description='Args for initialising training and testing of RL Agent')
 parser.add_argument('--mode', '-m', default='train')
 parser.add_argument('--model', '--mp', default=None)
-parser.add_argument('--epochs', '-e', type=int,default=10000)
+parser.add_argument('--epochs', '-e', type=int,default=6000)
 parser.add_argument('--learnrate', '-l', default=.001)
 parser.add_argument('--plot', '-p', default=True)
-parser.add_argument('--graphics', '-g', default=True)
+parser.add_argument('--graphics', '-g', default=False)
 parser.add_argument('--checkpoint', '-chk',type=int, default=None)
 parser.add_argument('--last_epoch', '-le', type=int, default=-1) 
 

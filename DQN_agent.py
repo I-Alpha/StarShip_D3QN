@@ -144,7 +144,7 @@ class DQN:
         model.summary()
         return model
 
-    def build_modelPar(self,input_shape=(4,246,1)):
+    def build_modelPar(self,input_shape=(1,4,246)):
 
 
 
@@ -156,54 +156,51 @@ class DQN:
         digit_0 = Input(shape=(4*246,))
         t = Reshape(input_shape)(digit_0)
         
-        x = Conv2D(32,(8,1),strides=(1,1), padding = "valid", activation="softmax", kernel_initializer=x_init , data_format="channels_first")(t) 
-        x = MaxPooling2D((4,4))(x)
-        x = LocallyConnected2D(64,(4,1),strides=(1,1), padding = "valid", activation="relu", kernel_initializer=x_init , data_format="channels_first")(x)
-        # x = MaxPooling2D((2,2))(x)        
-        # x=  Dropout(0.3)(x)
-        # x =Flatten()(x)
-        # out_a = Dense(64, activation='relu',
-        #               kernel_initializer='he_uniform')(x)
-        # out_a = x
+        x =    Dense(32, activation='relu',
+                    kernel_initializer='he_uniform')(t)
+        x =    Dense(64, activation='softmax',
+                    kernel_initializer='he_uniform')(x)             
+        x =    Dense(64, activation='relu',
+                    kernel_initializer='he_uniform')(x)
         out_a= (x)
-         
-        x = Conv2D(32,(8,1),strides=(1,1), padding = "valid", activation="relu", kernel_initializer=x_init , data_format="channels_first")(t) 
-        x = MaxPooling2D((4,4))(x)
-        x = LocallyConnected2D(64,(4,1),strides=(1,1), padding = "valid", activation="relu", kernel_initializer=x_init , data_format="channels_first")(x)
-        # x = MaxPooling2D((2,2))(x)        
-        # x=  Dropout(0.3)(x)
-        # x = Flatten()(x)      
-        # out_b =  Dense(64, activation='relu',
-        #               kernel_initializer='he_uniform')(x)
+
+        x =    Dense(64, activation='relu',
+                    kernel_initializer='he_uniform')(t)
+        x =    Dense(64, activation='relu',
+                    kernel_initializer='he_uniform')(x)   
         out_b= (x)
 
-        x = Conv2D(32,(8,1),strides=(1,1), padding = "valid", activation="relu", kernel_initializer=x_init , data_format="channels_first")(t) 
-        x = MaxPooling2D((4,4))(x)
-        x = LocallyConnected2D(64,(4,1),strides=(1,1), padding = "valid", activation="relu", kernel_initializer=x_init , data_format="channels_first")(x)
-        # x = MaxPooling2D((2,2))(x)        
-        # x=Dropout(0.3)(x)
-        # x =Flatten()(x)
-        # x = Dense(64, activation="relu")(x)
-        # # x = Dense(64, activation="relu")(x)      
-        # out_c =  Dense(64, activation='relu',
-        #               kernel_initializer='he_uniform')(x)
+        x =    Dense(64, activation='relu',
+                    kernel_initializer='he_uniform')(t)
+        x =    Dense(64, activation='relu',
+                    kernel_initializer='he_uniform')(x)
         out_c= (x)
+      
+        # x = Conv2D(4,(1,2),strides=(1,1), padding = "valid", activation="softmax", kernel_initializer=x_init , data_format="channels_first")(t) 
+        # x = MaxPooling2D((4,2))(x)
+        # x = LocallyConnected2D(8 ,(2,2),strides=(1,1), padding = "valid", activation="relu", kernel_initializer=x_init , data_format="channels_first")(x)
+        # # x = MaxPooling2D((1,2))(x)
+        # # x=Dropout(0.3)(x)
+        # # x =Flatten()(x)
+        # # x = Dense(64, activation="relu")(x)
+        # # # x = Dense(64, activation="relu")(x)      
+        # # out_c =  Dense(64, activation='relu',
+        # #               kernel_initializer='he_uniform')(x)
+        # out_c= (x)
 
         concatenated = concatenate([out_a,out_b,out_c])
         # model_final.add(Reshape((4,11,2), input_shape=(88,)))
         # model_final.add(concatted)
         # model_final.add(Flatten())
         # model_final.add(Dense(256, activation='relu', kernel_initializer='he_uniform'))
-        # model_final.add(Dense(64, activation='relu', kernel_initializer='he_uniform'))
-        
-        out_d=  MaxPooling2D((2,2))(concatenated)
-        out_d=  Dropout(0.3)(out_d)
-        out_d = Flatten()(out_d)
+        # # model_final.add(Dense(64, activation='relu', kernel_initializer='he_uniform'))
+        # out_d=  Dropout(0.4)(concatenated)
+        # out_d=  MaxPooling2D((8,1))(out_d)
+    
+        out_d = Flatten()(concatenated)
         
         out_d = Dense(512, activation='relu',
                       kernel_initializer='he_uniform')(out_d)           
-        out_d = Dense(256, activation='relu',
-                      kernel_initializer='he_uniform')(out_d)     
          
         state_value = Dense(1, kernel_initializer='he_uniform')(out_d)
         state_value = Lambda(lambda s: K.expand_dims(

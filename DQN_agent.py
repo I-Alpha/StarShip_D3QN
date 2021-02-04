@@ -5,7 +5,7 @@ import random
 import numpy as np
 from keras import Sequential
 from collections import deque
-from keras.layers import Dense, DepthwiseConv2D,  Lambda,  Add, Average, LSTM, TimeDistributed, Conv1D, Conv2D, Subtract, Activation, LocallyConnected1D, Reshape, concatenate, Concatenate, Flatten, Input, Dropout, MaxPooling1D,  MaxPooling2D
+from keras.layers import Dense, DepthwiseConv2D,  Lambda,  Add, Average, LSTM, TimeDistributed, Conv1D, Conv2D, Subtract, Activation, LocallyConnected2D, LocallyConnected1D, Reshape, concatenate, Concatenate, Flatten, Input, Dropout, MaxPooling1D,  MaxPooling2D
 import matplotlib.pyplot as plt
 from keras.optimizers import Adam
 from StarShip import StarShipGame
@@ -144,38 +144,66 @@ class DQN:
         model.summary()
         return model
 
-    def build_modelPar(self,input_shape=(4, 336,1)):
+    def build_modelPar(self,input_shape=(4,246,1)):
 
 
 
-        digit_0 = Input(shape=(4*336,))
+        truncatedn_init = initializers.TruncatedNormal(0, 1e-2)
+        x_init ="he_uniform" 
+        y_init = initializers.glorot_uniform()
+        const_init = initializers.constant(1e-2)
+
+        digit_0 = Input(shape=(4*246,))
         t = Reshape(input_shape)(digit_0)
         
-        x= Dense(64, activation="relu")(t)
-        x= Dense(64, activation="relu")(x)
-        out_a=Flatten()(x)
+        x = Conv2D(32,(8,1),strides=(1,1), padding = "valid", activation="softmax", kernel_initializer=x_init , data_format="channels_first")(t) 
+        x = MaxPooling2D((4,4))(x)
+        x = LocallyConnected2D(64,(4,1),strides=(1,1), padding = "valid", activation="relu", kernel_initializer=x_init , data_format="channels_first")(x)
+        # x = MaxPooling2D((2,2))(x)        
+        # x=  Dropout(0.3)(x)
+        # x =Flatten()(x)
+        # out_a = Dense(64, activation='relu',
+        #               kernel_initializer='he_uniform')(x)
+        # out_a = x
+        out_a= (x)
+         
+        x = Conv2D(32,(8,1),strides=(1,1), padding = "valid", activation="relu", kernel_initializer=x_init , data_format="channels_first")(t) 
+        x = MaxPooling2D((4,4))(x)
+        x = LocallyConnected2D(64,(4,1),strides=(1,1), padding = "valid", activation="relu", kernel_initializer=x_init , data_format="channels_first")(x)
+        # x = MaxPooling2D((2,2))(x)        
+        # x=  Dropout(0.3)(x)
+        # x = Flatten()(x)      
+        # out_b =  Dense(64, activation='relu',
+        #               kernel_initializer='he_uniform')(x)
+        out_b= (x)
 
-        x = Conv2D(1,(4,1),strides=(4,1),  activation="relu")(t)
-        x=Dense(64, activation="relu")(x)
-        x=Dense(64, activation="relu")(x)
-        out_b=Flatten()(x)
-       
-        x = Conv2D(1,(4,1),strides=(4,1),  activation="relu")(t)
-        x = Dense(64, activation="relu")(x)
-        x = Dense(64, activation="relu")(x)      
-        out_c=Flatten()(x)          
+        x = Conv2D(32,(8,1),strides=(1,1), padding = "valid", activation="relu", kernel_initializer=x_init , data_format="channels_first")(t) 
+        x = MaxPooling2D((4,4))(x)
+        x = LocallyConnected2D(64,(4,1),strides=(1,1), padding = "valid", activation="relu", kernel_initializer=x_init , data_format="channels_first")(x)
+        # x = MaxPooling2D((2,2))(x)        
+        # x=Dropout(0.3)(x)
+        # x =Flatten()(x)
+        # x = Dense(64, activation="relu")(x)
+        # # x = Dense(64, activation="relu")(x)      
+        # out_c =  Dense(64, activation='relu',
+        #               kernel_initializer='he_uniform')(x)
+        out_c= (x)
 
-        concatenated = concatenate([out_a, out_b,out_c])
+        concatenated = concatenate([out_a,out_b,out_c])
         # model_final.add(Reshape((4,11,2), input_shape=(88,)))
         # model_final.add(concatted)
         # model_final.add(Flatten())
         # model_final.add(Dense(256, activation='relu', kernel_initializer='he_uniform'))
         # model_final.add(Dense(64, activation='relu', kernel_initializer='he_uniform'))
-        out_d = Flatten()(concatenated)
+        
+        out_d=  MaxPooling2D((2,2))(concatenated)
+        out_d=  Dropout(0.3)(out_d)
+        out_d = Flatten()(out_d)
+        
         out_d = Dense(512, activation='relu',
-                      kernel_initializer='he_uniform')(out_d) 
-
-
+                      kernel_initializer='he_uniform')(out_d)           
+        out_d = Dense(256, activation='relu',
+                      kernel_initializer='he_uniform')(out_d)     
          
         state_value = Dense(1, kernel_initializer='he_uniform')(out_d)
         state_value = Lambda(lambda s: K.expand_dims(
@@ -367,7 +395,7 @@ gl_loss=0
 def train_dqn(episode,  graphics=True, ch=300,  lchk = 0 , model=None):    
     loss = []     
     action_space = 6
-    state_space = 4*336
+    state_space = 4*246
     max_steps = 98*9
     # agent =ic(DQN(action_space, state_space,  model=ic(keras.models.load_model('CNN-990--0.40.h5'))))
     # for e in range(990,episode):
@@ -388,14 +416,15 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk = 0 , model=None):
         #         pass
 
         state = funcs[0]()
-        score = 0
-
+        score = 0 
         for i in range(max_steps):
             if i !=0:
                 if i % 98==0: 
                    env.time_multipliyer *= 1.4                 
                 if i % 4 ==0: 
-                    env.reward +=  env.time_multipliyer * 0.4 + i *.08
+                    env.reward +=  env.time_multipliyer * 0.04 + i *1e-7
+                    env.time_multipliyer += 1e-4
+
           
 
             if (env.save):

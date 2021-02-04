@@ -33,7 +33,7 @@ class StarShipGame:
         self.spaceShipSprite = SpaceShipSprite(StarShipGame.screen,r'Assets\imgs\triangleShip.png',startPosition=((screen_size[0]/2)-60,screen_size[1]/2))   
         self.obstacleGenerator = ObstacleGenerator(StarShipGame.screen,r'Assets\imgs\brick.png')
         self.screen_size = screen_size
-        self.FPS = 100
+        self.FPS = 90
         self.clock = pygame.time.Clock()
         pygame.display.set_caption("StarShip")
         self.obstacleGenerator.generate(0); 
@@ -41,7 +41,7 @@ class StarShipGame:
         self.save=False 
         self.REM_STEP = 4
         self.ROWS =  1
-        self.COLS =  336
+        self.COLS = 246
         self.image_memory = np.zeros((self.REM_STEP, self.ROWS, self.COLS))
         self.state_size = (self.REM_STEP, self.ROWS, self.COLS)
         self.x =0   
@@ -219,21 +219,21 @@ class StarShipGame:
     def game_loop(self):
             
            
-            self.obstacleGenerator.updateAll()       
-            if (ObstacleGenerator.fails) > 0 :
-                self.done=True           
-                return   
+            self.obstacleGenerator.updateAll()                
             StarShipGame.liveProjectiles=self.spaceShipSprite.liveProjectiles             
             ObstacleGenerator.liveProjectiles=StarShipGame.liveProjectiles        
             hit = self.obstacleGenerator.checkHits()       
             if hit:
-                self.reward+=.4 + (self.deadObstacles/self.time_multipliyer) *10
+                self.reward+=.5 + (self.deadObstacles/(2*self.time_multipliyer)) *10
                 hit=False            
             if ObstacleGenerator.p_out_of_bounds:
                 self.reward-=.2
                 ObstacleGenerator.p_out_of_bounds=0
             self.checkHits()
-
+            if (ObstacleGenerator.fails) > 0 :
+                    self.reward -= (ObstacleGenerator.fails *.8)/self.time_multipliyer
+                    self.done=True           
+                           
             for event in pygame.event.get():
                 if event.type == QUIT:           # terminates the game when game window is closed
                     pygame.quit()
@@ -241,7 +241,7 @@ class StarShipGame:
                 elif event.type == KEYDOWN:
                     if event.key == K_ESCAPE:    # terminates the game when esc is pressed
                         pygame.quit()
-                        sys.exit()  
+                        sys.exit()      
                     if event.key == K_s:  
                         self.save=True
 
@@ -251,6 +251,8 @@ class StarShipGame:
         while True: #begin gameloop 
             # handle mouse and keyboard events   
             self.clock.tick(self.FPS)
+            print(self.reward)
+            self.reward =0
             self.game_loop()            
             keys = pygame.key.get_pressed()
             self.spaceShipSprite.move(keys)
@@ -259,7 +261,7 @@ class StarShipGame:
             if self.check_shipalive() or ObstacleGenerator.fails>0 or Obstacle.fails  > 0: 
                ObstacleGenerator.reset()
                self.spaceShipSprite.liveProjectiles=[]
-               self.done=True
+               self.done=True 
                self.reward += int(self.clock.get_time()/1000)
                pygame.quit()
                sys.exit()
@@ -311,7 +313,6 @@ class StarShipGame:
                      self.done= True
                      return True
                 if ObstacleGenerator.fails>0:
-                    self.reward -= ObstacleGenerator.fails * 0.5
                     self.done =True
                 return False
             
@@ -327,11 +328,13 @@ class StarShipGame:
                     self.obstacleGenerator.updateList()
                     self.obstacleGenerator.generate(delay=0,num=1)
                     StarShipGame.liveObstacles =self.obstacleGenerator.liveObstacles                 
+                    ObstacleGenerator.deadObstacles+=1
                 
                     if alive :
-                        self.reward-=.3
-                    else: 
                         self.reward-=.5
+                    else: 
+                        self.reward-= 6
+                        self.done = True
 
 
     def draw_score(self,color ='white'):

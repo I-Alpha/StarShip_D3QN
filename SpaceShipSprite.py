@@ -11,7 +11,7 @@ class SpaceShipSprite(DestructableObject):
       
       
 
-      def __init__(self,screen,image,attackDmg= 1,damage=0,health=4,startPosition=(0.0,0.0),ammoMax=7, name="SpaceShip-"):
+      def __init__(self,screen,image,attackDmg= 1,damage=0,health=4,startPosition=(0.0,0.0),ammoMax=4, name="SpaceShip-"):
                super().__init__(screen,image,attackDmg,damage,health,startPosition)               
                self.rect = (image)
                self.name = name 
@@ -21,9 +21,9 @@ class SpaceShipSprite(DestructableObject):
                self.screen = screen
                self.lives =1 
                self.maxhp=health
-               self.ammoCounter =5500
+               self.ammoCounter =6500
                self.firedAt=0      
-               self.maxProjectiles_on_screen = 30
+               self.maxProjectiles_on_screen =20
       def move(self,keys):
            event = "none"         
            if  isinstance(keys,type(pygame.key.get_pressed())):
@@ -65,7 +65,7 @@ class SpaceShipSprite(DestructableObject):
             if(self.CheckOutOfBounds("xmax")): self.currentPos  =  (DestructableObject.bounds[0]-self.image_size[0]-5,self.currentPos[1])  
                
       def fireprojectile(self):      
-            newprojectile = Projectile(self.screen,r'Assets\imgs\bullet1.png',movespeed=-8,startPosition=(self.currentPos[0],self.currentPos[1]-10))
+            newprojectile = Projectile(self.screen,r'Assets\imgs\bullet1.png',movespeed=-8,startPosition=(self.currentPos[0]+5,self.currentPos[1]-14))
         
             if self.currentAmmo > 0 :
                    self.firedAt = pygame.time.get_ticks()

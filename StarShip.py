@@ -41,7 +41,7 @@ class StarShipGame:
         self.save=False 
         self.REM_STEP = 4
         self.ROWS =  1
-        self.COLS = 138
+        self.COLS = 114
         self.image_memory = np.zeros((self.REM_STEP, self.ROWS, self.COLS))
         self.state_size = (self.REM_STEP, self.ROWS, self.COLS)
         self.x =0   
@@ -141,8 +141,7 @@ class StarShipGame:
                obs_collection[label+"X"]=x              
                obs_collection[label +"Y"]=y
                obs_collection[label+"width"]=w/2
-               obs_collection[label+"height"]=h/2
-               obs_collection[label+"speed"]=obs.movespeed                 
+               obs_collection[label+"height"]=h/2 
                count+=1
        
         count=0
@@ -157,8 +156,7 @@ class StarShipGame:
             #    livep[label+"CX_offset"]=cx_offset
             #    livep[label+"CY_offset"]=cy_offset
                livep[label+"width"]=w/2
-               livep[label+"height"]=h/2
-               livep[label+"speed"]=obs.movespeed      
+               livep[label+"height"]=h/2 
                count+=1
         
         count=0
@@ -170,29 +168,27 @@ class StarShipGame:
                     # "agent_X_offset":agent_X_offset,
                     # "agent_Y_offset":agent_Y_offset,                    
                     # "agent_CX_offset":agent_CX_offset,
-                    # "agent_CY_offset":agent_CY_offset,
-                    "agent_speed":self.spaceShipSprite.movespeed,
+                    # "agent_CY_offset":agent_CY_offset, 
                     # "agent_ammo_current":self.spaceShipSprite.currentAmmo,
                     # "agent_ammo_counter":self.spaceShipSprite.ammoCounter,
-                    "agent_health" : self.spaceShipSprite.health,
+                    "agent_health" :1/(self.spaceShipSprite.health+1),
                     # "agent_damage" : self.spaceShipSprite.damage,
-                    # "agent_reward": self.reward,            
+                    "agent_reward": 1/(self.reward+1),            
                     # "live_obstacles_num":len(self.obstacleGenerator.liveObstacles),
-                    "dead_obstacles":self.obstacleGenerator.deadObstacles,
-                    "live_projectiles_num" : len(self.obstacleGenerator.liveProjectiles),
-                    "live_projectiles_last_fired_at": self.spaceShipSprite.firedAt,
-                    # "live_projectiles_miss": self.obstacleGenerator.p_out_of_bounds, 
-                    "hits":self.obstacleGenerator.hits,   
-                    "fails":self.obstacleGenerator.fails,
-                    "counter":  self.counter/1000000,
-                    "score":self.score,                     
-                }
-        self.counter += 1
+                    "dead_obstacles":1/(self.obstacleGenerator.deadObstacles+1),
+                    "live_projectiles_num" : 1/(len(self.obstacleGenerator.liveProjectiles)+1),
+                    "live_projectiles_last_fired_at": 1/(self.spaceShipSprite.firedAt+1),
+                    "live_projectiles_miss": 1/(self.obstacleGenerator.p_out_of_bounds+1), 
+                    "hits":1/(self.obstacleGenerator.hits+1),   
+                    "fails":1/(self.obstacleGenerator.fails+1),
+                    "counter":  1/(self.counter+1),
+                    "score":1/(self.score+1),                     
+                } 
         for m, (k, v) in enumerate(obs_collection.items()):
                 state[k]=v 
 
         livep_len = len(livep)
-        livep_len = (int)(livep_len/5)
+        livep_len = (int)(livep_len/4)
         if livep_len < self.spaceShipSprite.maxProjectiles_on_screen:        
             for l in range(livep_len,self.spaceShipSprite.maxProjectiles_on_screen):
                     label = "live_projectile_placeHolder_" + str(l) + "_"
@@ -203,8 +199,7 @@ class StarShipGame:
                     # livep[label+"CX_offset"]=0
                     # livep[label+"CY_offset"]=0
                     livep[label+"width"]=-1
-                    livep[label+"height"]=-1
-                    livep[label+"speed"]=0
+                    livep[label+"height"]=-1 
 
 
         for t, (k, v) in enumerate(livep.items()):
@@ -459,6 +454,8 @@ class StarShipGame:
         return self.reward, state,self.done
 
     def stepNew(self,action):
+        
+        self.counter += 1
         self.done=0
         self.reward =0
         key = "nothing"

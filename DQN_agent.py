@@ -31,7 +31,7 @@ from tensorflow.keras import initializers
 import datetime
 import time
 from keras.callbacks import History 
-
+from ring_buf import RingBuf
 env = StarShipGame(True)
  
 HUBER_LOSS_DELTA = 1.0
@@ -55,37 +55,61 @@ class DQN:
         self.action_space = action_space
         self.state_space = state_space
         self.epsilon = 1
-        self.gamma = .98
-        self.batch_size = 64
-        self.epsilon_min = .15
-        self.epsilon_decay = 1e-5
+        self.gamma = .95
+        self.batch_size = 99
+        self.epsilon_min = .1
+        self.epsilon_decay = 0.0000127551
         self.burn_limit = .001
-        self.learning_rate = .0004
-        self.modelname ='D3QNmodel'
-        self.memory = deque(maxlen=90000) 
+        self.learning_rate = 25e-5
+        self.memory = RingBuf(1000000)
         self.optimizer_model = 'RMSProp'
 
         if model == None:
-            self.model = self.build_modelPar()
+            self.model = self.build_LocallyConnected1D() #dfault _model
             # self.target_model = self.build_modelGPU()
         else:
             self.model = model 
             # self.target_model =model 
-       
+        self.modelname = self.model._name
 
 
     def saveModel(self, score="n.a"):
+        if DQN.currEpisode < 5: 
+           return
+        time_=datetime.datetime.now
+        time_h =time_().strftime("%h")
+        savedir = "savedModels/"+self.model.name+"/"+time_().strftime("%m%d")+"/"
         print("saving " + self.model.name + "-" + str(DQN.currEpisode)+str(int(score)) + "...." )
-        try:
-            self.model.save("savedModels\\"+self.model.name+"_3PCNN-{}-{}.h5".format(DQN.currEpisode, self.average[-1]), overwrite=True)
-            print(self.model.name+"-" + str(DQN.currEpisode)+str(int(score)) + " saved! ")
+        name=self.model.name+time_().strftime("%h")+"_{}_{:0.2f}.h5".format(DQN.currEpisode, self.average[-1])
+        try:            
+            self.model.save( savedir+name, overwrite=True)                            
+            self.saveLog(name+".txt",savedir) 
+            print(name+ " saved! ")    
         except:
-            print(self.model.name+"-" + str(DQN.currEpisode)+str(int(score)) + " not saved! ")
+            print(name + " not saved! ")  
+        try:
+            pylab.savefig( savedir+ name)    
+        except: 
             pass
-    
+
+    def saveLog(self,name="lastRun.txt", dir ="logs/fit/"):
+       if DQN.currEpisode <5: 
+           return
+       try:
+          f = open(dir+name, "w")          
+          for i,q in log_data:
+              f.write("{},{}\n".format(i,q))
+          f.close()          
+       except : 
+          print("save log failed")
+
+       try:
+            pylab.savefig(dir+name+".png")
+       except OSError:
+            pass
 
         
-    def build_modelPar1(self,dueling = True,input_shape=(1,4,336)):
+    def build_modelPar(self,dueling = True,input_shape=(4,1,138)):
         truncatedn_init = initializers.TruncatedNormal(0, 1e-2)
         x_init ="he_uniform" 
         y_init = initializers.glorot_uniform()
@@ -140,39 +164,43 @@ class DQN:
         else:
             print('Invalid optimizer!')
 
-        model.compile(loss=huber_loss, optimizer=optimizer)
+        model.compile(loss="mean_squared_error", optimizer=optimizer)
         model.summary()
         return model
 
-    def build_modelPar(self,input_shape=(1,4,246)):
+    def build_modelPar_2(self,input_shape=(4,1,138,)):
 
 
-
-        truncatedn_init = initializers.TruncatedNormal(0, 1e-2)
+        truncatedn_init = initializers.TruncatedNormal(0, 1e-2)        
+        truncatedn_init2 = initializers.TruncatedNormal(0, 2e-2)
         x_init ="he_uniform" 
         y_init = initializers.glorot_uniform()
         const_init = initializers.constant(1e-2)
-
-        digit_0 = Input(shape=(4*246,))
+        const_init2=initializers.constant(2e-2)
+        digit_0 = Input(shape=(4*138,))
         t = Reshape(input_shape)(digit_0)
         
-        x =    Dense(32, activation='relu',
-                    kernel_initializer='he_uniform')(t)
-        x =    Dense(64, activation='softmax',
-                    kernel_initializer='he_uniform')(x)             
-        x =    Dense(64, activation='relu',
-                    kernel_initializer='he_uniform')(x)
+        x = Dense(64, activation='relu',
+                    kernel_initializer=x_init)(t)
+        # x =    Dense(128, activation='relu',
+        #             kernel_initializer=const_init,use_bias=True, bias_initializer=truncatedn_init)(x)     
+        # x =    Dropout(0.4)(x)
+        # x =    Reshape([1,-1,4])(x)
+        # x =    MaxPooling2D((1,2),(2))(x) 
+        # x=     Reshape([4,-1])(x)
+        x = Dense(64, activation='softmax',
+                    kernel_initializer=x_init)(x)
         out_a= (x)
 
-        x =    Dense(64, activation='relu',
-                    kernel_initializer='he_uniform')(t)
-        x =    Dense(64, activation='relu',
+        x = Dense(64, activation='relu',
+                    kernel_initializer=x_init)(t)
+        x = Dense(64, activation='softmax',
                     kernel_initializer='he_uniform')(x)   
         out_b= (x)
-
-        x =    Dense(64, activation='relu',
-                    kernel_initializer='he_uniform')(t)
-        x =    Dense(64, activation='relu',
+     
+        x = Dense(64, activation='relu',
+                    kernel_initializer=y_init)(t)        
+        x = Dense(64, activation='softmax',
                     kernel_initializer='he_uniform')(x)
         out_c= (x)
       
@@ -200,9 +228,12 @@ class DQN:
         out_d = Flatten()(concatenated)
         
         out_d = Dense(512, activation='relu',
-                      kernel_initializer='he_uniform')(out_d)           
+                      kernel_initializer='he_uniform')(out_d) 
+
+        # out_d = Dense(64, activation='relu',
+        #               kernel_initializer='he_uniform')(out_d)            
          
-        state_value = Dense(1, kernel_initializer='he_uniform')(out_d)
+        state_value = Dense(1, activation='softmax',kernel_initializer='he_uniform')(out_d)
         state_value = Lambda(lambda s: K.expand_dims(
             s[:, 0], -1), output_shape=(self.action_space,))(state_value)
 
@@ -215,8 +246,8 @@ class DQN:
 
         model_final = Model([digit_0], out,name='ParallelCNNmodel')
 
-        model_final.compile(loss=huber_loss, optimizer=Adam( lr=self.learning_rate),metrics=["accuracy"])
-        #RMSprop( lr=self.learning_rate, rho=0.95, decay=1e-7, epsilon=self.epsilon), metrics=["accuracy"])
+        model_final.compile(loss="mean_squared_error",optimizer=Adam(learning_rate=self.learning_rate), metrics=["accuracy"])
+        #  RMSprop(lr=self.learning_rate, rho=0.95, decay=25e-5, moepsilon=self.epsilon), metrics=["accuracy"])
         print(model_final.summary())
         return model_final
 
@@ -233,7 +264,7 @@ class DQN:
 
     
     
-    def build_modelGPU(self, input_shape=(336,4), action_space=6, dueling=True):
+    def build_model_lstm(self, input_shape=(336,4), action_space=6, dueling=True):
         self.network_size = 256
 
         X_input = Input(shape=(4*336,))
@@ -281,29 +312,35 @@ class DQN:
         # model.compile(loss="mean_squared_error", optimizer=Adam(lr=0.00025,epsilon=0.01), metrics=["accuracy"])
         model.summary()
         return model
-
-    #cpu - channels
-    def build_model2(self, input_shape=(4,336,1), action_space=6, dueling=True):
+ 
+    def build_LocallyConnected1D(self, input_shape=(138,4), action_space=6, dueling=True):
         self.network_size = 256
 
-        X_input = Input(shape=(4*336,))
+        X_input = Input(shape=(4*138,))
         X = X_input
         X = Reshape(input_shape)(X)
-        X = Conv2D(64, (1,4), strides=(2), activation="relu",
+
+        X = LocallyConnected1D(32, (8),  strides=(4), activation="relu",
                    padding="valid", kernel_initializer='he_uniform')(X)  
                    #try time-distrubuted    
+        X = LocallyConnected1D(64, (4), strides=(3), activation="relu",
+                   padding="valid", kernel_initializer='he_uniform')(X)  
+
+        X = LocallyConnected1D(64, (2), strides=(2), activation="relu",
+                   padding="valid", kernel_initializer='he_uniform')(X)             
+        X = Dropout(.3)(X)
         X = Flatten()(X)
-        X = Dense(self.network_size*2,  activation="relu",
+        X = Dense(self.network_size,  activation="relu",
                   kernel_initializer='he_uniform')(X)
         X = Dense(self.network_size,  activation="relu",
                   kernel_initializer='he_uniform')(X)
-        X = Dense(64,  activation="relu", kernel_initializer='he_uniform')(X)
+
         
         if dueling:
-            state_value = Dense(1,kernel_initializer='he_uniform')(X)
+            state_value = Dense(1,kernel_initializer='he_uniform',activation="softmax")(X)
             state_value = Lambda(lambda s: K.expand_dims(s[:, 0], -1), output_shape=(action_space,))(state_value)
 
-            action_advantage = Dense(action_space,kernel_initializer='he_uniform')(X)
+            action_advantage = Dense(action_space,kernel_initializer='he_uniform', activation="linear")(X)
             action_advantage = Lambda(lambda a: a[:, :] - K.mean(a[:, :], keepdims=True), output_shape=(action_space,))(action_advantage)
 
             X = Add()([state_value, action_advantage])
@@ -311,7 +348,7 @@ class DQN:
             # Output Layer with # of actions: 2 nodes (left, right)
             X = Dense(action_space, activation="relu",kernel_initializer='he_uniform')(X)
 
-        model = Model(inputs = X_input, outputs = X, name = 'OneCNN_model')
+        model = Model(inputs = X_input, outputs = X, name = 'LocallyConnected1D')
         model.compile(loss="mean_squared_error", optimizer=Adam(lr=self.learning_rate),  metrics=["accuracy"])
         
         # model.compile(loss="mean_squared_error", optimizer=Adam(lr=0.00025,epsilon=0.01), metrics=["accuracy"])
@@ -330,9 +367,9 @@ class DQN:
     def replay(self):
        
     
-        if len(self.memory) < self.batch_size:
+        if self.memory.__len__() < self.batch_size:
             return
-        minibatch = random.sample(self.memory, self.batch_size)
+        minibatch = random.sample(self.memory.data[0:self.memory.__len__()], self.batch_size)
         states = np.array([i[0] for i in minibatch], dtype=float)
         actions = np.array([i[1] for i in minibatch])
         rewards = np.array([i[2] for i in minibatch])
@@ -372,7 +409,8 @@ class DQN:
             pylab.plot(self.episodes, self.scores, 'b')
             pylab.ylabel('Score', fontsize=18)
             pylab.xlabel('Steps', fontsize=18)
-          
+            global log_data
+            log_data.append((episode,score))
             try:
                 pylab.savefig( self.modelname+"_CNN.png")
             except OSError:
@@ -392,11 +430,11 @@ gl_loss=0
 def train_dqn(episode,  graphics=True, ch=300,  lchk = 0 , model=None):    
     loss = []     
     action_space = 6
-    state_space = 4*246
+    state_space = 4*138
     max_steps = 98*9
     # agent =ic(DQN(action_space, state_space,  model=ic(keras.models.load_model('CNN-990--0.40.h5'))))
     # for e in range(990,episode):
-    agent =ic(DQN(action_space, state_space,  model=model))
+    agent =DQN(action_space, state_space,  model=model)
     agent.env_name = "StarShip"
     for e in range(lchk,episode):   
         state = env.resetNew()
@@ -429,7 +467,7 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk = 0 , model=None):
                 env.save = False
             action = agent.act(state)
             reward, next_state, done = env.stepNew(action)
-            next_state = env.getEnvStateOnScreen()
+            next_state = env.getEnvStateOnScreen()#do i need this? 
             score += reward
             funcs = [lambda: (np.reshape(next_state, (1, state_space))), lambda: (
                 np.reshape(next_state, (1, len(next_state))))]
@@ -452,7 +490,7 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk = 0 , model=None):
             if done:
                 
                 average = agent.PlotModel(score,e)
-                print("episode: {}/{}, score: {}, average: {} , time-step-reached: {} ".format(e, episode, score, average,i))
+                print("episode: {}/{}, score:  {:0.3f}, average: {}".format(e, episode, score, average))
                 # print("Max: ",i," Ep: ",e)
                 # # print("episode: {}/{}, score: {}, lr : {}".format(e,global file_writer   t
                 # training_summary = tf.Summary(value=[
@@ -490,16 +528,19 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk = 0 , model=None):
                     next_state, reward, done, _ = env.stepNew(action)
                     i += 1
                     if done:
-                        print("episode: {}/{}, score: {}".format(e, self.EPISODES, i))
+                        print("episode: {}/{}, score: {}".format(e, self.EPISODES))
                         break
 
-def plot_loss(ep, loss):
+log_data =[]
+def plot_loss(ep, loss): 
     try: 
         plt.plot([i for i in range(ep)], loss)
         plt.xlabel('episodes')
         plt.ylabel('reward')
         plt.title('Episodal Loss')
         plt.savefig('logs\\loss_plot.png')          
+        DQN.saveLog(log_data,'logs\\loss_plot.txt')
+
     except: 
         print("loss_plot error. Skipping plotting.\n")
         pass   

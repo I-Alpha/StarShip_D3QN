@@ -48,6 +48,7 @@ class StarShipGame:
         self.time_multipliyer= 1 
         self.time_time1 = 0
         self.counter = 0
+
     def vectorize_func(self,m):
         return m/255
     
@@ -64,70 +65,27 @@ class StarShipGame:
         temp = self.render()
         temp=np.reshape(temp,(-1,3))
         temp= pd.DataFrame(temp,columns=['r','g','b'])
-        # conditions = [ 
-        #     (temp == 255)
-        # ]
-        # temp2=pd.Series()
-        # temp2['r'] = 0         
-        # temp2['g'] = 0         
-        # # temp2['b'] = 0 
-        # temp.loc[(temp['r'] >1) & (temp['g']>1) & (temp['b']>1)] =  [0,0,0]
-
-        # temp =    np.where(temp['r'] == 0 & temp['g']==3 & temp['b'] == 0 ),[22,33,44], temp).tolist()
-        # temp =    np.where(temp == [255,255,255] ,[0,0,0], temp).tolist()
+        conditions = [ 
+            (temp == 255)
+        ]
+        temp2=pd.Series()
+        temp2['r'] = 0         
+        temp2['g'] = 0         
+        temp2['b'] = 0 
+        temp.loc[(temp['r'] >1) & (temp['g']>1) & (temp['b']>1)] =  [0,0,0]
+        temp =    np.where(temp['r'] == 0 & temp['g']==3 & temp['b'] == 0 ,[22,33,44], temp.tolist())
+        temp =    np.where(temp == [255,255,255] ,[0,0,0], temp).tolist()
         return temp.values
     
-
-    def getPixelsOnScreen(self):  
-        temp =copy.deepcopy(pygame.surfarray.array3d(self.screen))
-        temp=np.reshape(temp,(-1,3))
-        temp= pd.DataFrame(temp,columns=('r','g','b'))
-        conditions = [
-            (temp['r'] == 190) & (temp['g'] == 0) & (temp['b'] == 0),
-            (temp['r'] == 0) & (temp['g'] == 255) & (temp['b'] == 0),
-            (temp['r'] == 0) & (temp['g'] == 0) & (temp['b'] == 255)
-            (temp['r'] == 0) & (temp['g'] == 0) & (temp['b'] == 255)
-        ]
-        choices = [1, 2, 3]
-        #np.select(conditions, choices, default=0)
-      
-        return self.vectorize_func(np.select(conditions, choices, default=0))
-       
-        # new =[]
-        # for x,i in enumerate(temp):
-        #     new.append(colors.get((tuple)(i),0))
-
-        # return new
-        # self.vectorize_func(temp)
-      #    temp= [ p.array([0,0,0],dtype='uint8') if np.array_equal(i,np.array([255,255,255])) else i for i in j  for j in temp]
-      #   # for y in temp:
-        # #test for white pixels
-        #     if np.array_equal(y,target):
-        #         print("W found")
-    def getPixelsOnScreenNew(self):            
+    def getPixelsOnScreen(self):            
         img= self.render()
- 
-        # img=np.reshape(img,(400,400,3)) 
-            # 
-        # img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)   
-        # img = cv2.resize(img, (100, 100))  
-        # img = np.transpose(img)
-        # ret, img = cv2.threshold(img,1,255,cv2.THRESH_BINARY)   
-        # img = self.vectorize_func(img)
-        # self.image_memory = np.roll(self.image_memory, 1, axis = 0)
-        # self.image_memory[0,:,:] = img
         img_rgb = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
         img_rgb_resized = cv2.resize(img_rgb, (self.COLS, self.ROWS), interpolation=cv2.INTER_CUBIC)
         img_rgb_resized[img_rgb_resized > 5] = 255
         img_rgb_resized = np.transpose(img_rgb_resized / 255)
         self.image_memory = np.roll(self.image_memory, 1, axis = 0)
-        self.image_memory[0,:,:] = img_rgb_resized
-    
+        self.image_memory[0,:,:] = img_rgb_resized    
         self.imshow(self.image_memory,0)
-        
-        # cv2.namedWindow("Input")
-        # cv2.imshow("Input",  np.reshape(self.image_memory,(200,200,1)))
-        #np.select(conditions, choices, default=0)
         return np.expand_dims(self.image_memory, axis=0)
 
     def getEnvStateOnScreen(self):
@@ -544,5 +502,6 @@ class StarShipGame:
         return offsetX, offsetY
    
 if __name__ == '__main__':
-	env = StarShipGame(graphics=True)
-	env.play()
+        env = StarShipGame(graphics=True)
+        env.FPS = 20
+        env.play()

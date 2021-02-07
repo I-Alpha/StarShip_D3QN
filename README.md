@@ -14,3 +14,7 @@ DQNAgent.py can also be run on its own with its own default values and is equiva
 
 
 (Will clean up code later)
+
+Papers i've found where useful(more coming):
+
+https://nihit.github.io/resources/spaceinvaders.pdf

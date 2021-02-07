@@ -9,7 +9,7 @@ from icecream import ic
 parser = argparse.ArgumentParser(
     description='Args for initialising training and testing of RL Agent')
 parser.add_argument('--mode', '-m', default='train')
-parser.add_argument('--model', '--mp', default=None)
+parser.add_argument('--model', '--mp', default=r"savedModels\Base1model\0207Feb\Base1modelFeb_757_-17.42.h5")
 parser.add_argument('--epochs', '-e', type=int,default=4000)
 parser.add_argument('--learnrate', '-l', default=.001)
 parser.add_argument('--plot', '-p', default=True)
@@ -33,7 +33,7 @@ if __name__ == '__main__':
             if args.model != None:
                 try: 
                         model = keras.models.load_model(args.model)
-                        print("\n  Training beginning....\n\n  Model  {  " + args.model + "  }  has been loaded! \n\n Calling train function.....\n\n\n\n")                       
+                        print("\n\n\n  Training beginning....\n\n  Model  {  " + args.model + "  }  has been loaded! \n\n Calling train function.....\n\n")                       
                 except :
                         print("Error.Check model is not incompatible with current enviroment configuration")
                         exit()

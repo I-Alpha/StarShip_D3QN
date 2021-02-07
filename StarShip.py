@@ -41,7 +41,7 @@ class StarShipGame:
         self.save=False 
         self.REM_STEP = 4
         self.ROWS =  1
-        self.COLS = 114
+        self.COLS = 112
         self.image_memory = np.zeros((self.REM_STEP, self.ROWS, self.COLS))
         self.state_size = (self.REM_STEP, self.ROWS, self.COLS)
         self.x =0   
@@ -155,26 +155,13 @@ class StarShipGame:
             #    livep[label+"Y_offset"]=y_offset
             #    livep[label+"CX_offset"]=cx_offset
             #    livep[label+"CY_offset"]=cy_offset
-               livep[label+"width"]=w/2
-               livep[label+"height"]=h/2 
+               livep[label+"width"]=w
+               livep[label+"height"]=h 
                count+=1
         
         count=0
-        state = {            
-                    "agent_X" : agentX,
-                    "agent_Y":agentY,
-                    "agent_width": agent_w/2,
-                    "agent_height": agent_h/2,
-                    # "agent_X_offset":agent_X_offset,
-                    # "agent_Y_offset":agent_Y_offset,                    
-                    # "agent_CX_offset":agent_CX_offset,
-                    # "agent_CY_offset":agent_CY_offset, 
-                    # "agent_ammo_current":self.spaceShipSprite.currentAmmo,
-                    # "agent_ammo_counter":self.spaceShipSprite.ammoCounter,
-                    "agent_health" :1/(self.spaceShipSprite.health+1),
-                    # "agent_damage" : self.spaceShipSprite.damage,
-                    "agent_reward": 1/(self.reward+1),            
-                    # "live_obstacles_num":len(self.obstacleGenerator.liveObstacles),
+        state = {                              
+                    
                     "dead_obstacles":1/(self.obstacleGenerator.deadObstacles+1),
                     "live_projectiles_num" : 1/(len(self.obstacleGenerator.liveProjectiles)+1),
                     "live_projectiles_last_fired_at": 1/(self.spaceShipSprite.firedAt+1),
@@ -182,7 +169,21 @@ class StarShipGame:
                     "hits":1/(self.obstacleGenerator.hits+1),   
                     "fails":1/(self.obstacleGenerator.fails+1),
                     "counter":  1/(self.counter+1),
-                    "score":1/(self.score+1),                     
+                    #"score":1/(self.score+1),     
+                    # "agent_X_offset":agent_X_offset,
+                    # "agent_Y_offset":agent_Y_offset,                    
+                    # "agent_CX_offset":agent_CX_offset,
+                    # "agent_CY_offset":agent_CY_offset, 
+                    # "agent_ammo_current":self.spaceShipSprite.currentAmmo,
+                    # "agent_ammo_counter":self.spaceShipSprite.ammoCounter,
+                    # "agent_health" :1/(self.spaceShipSprite.health+1),
+                    # "agent_damage" : self.spaceShipSprite.damage,
+                    "agent_reward":self.reward,            
+                    # "live_obstacles_num":len(self.obstacleGenerator.liveObstacles),
+                   "agent_X" : agentX,
+                    "agent_Y":agentY,
+                    "agent_width": agent_w,
+                    "agent_height": agent_h,                     
                 } 
         for m, (k, v) in enumerate(obs_collection.items()):
                 state[k]=v 
@@ -211,21 +212,20 @@ class StarShipGame:
         return np.expand_dims(self.image_memory, axis=0)
     
     def game_loop(self):
-            
            
             self.obstacleGenerator.updateAll()                
             StarShipGame.liveProjectiles=self.spaceShipSprite.liveProjectiles             
             ObstacleGenerator.liveProjectiles=StarShipGame.liveProjectiles        
             hit = self.obstacleGenerator.checkHits()       
             if hit:
-                self.reward+=2 + (self.deadObstacles/(2*self.time_multipliyer)) *10
+                self.reward+=1
                 hit=False            
             if ObstacleGenerator.p_out_of_bounds:
-                self.reward-=.4
+                self.reward-=.3
                 ObstacleGenerator.p_out_of_bounds=0
             self.checkHits()
             if (ObstacleGenerator.fails) > 0 :
-                    self.reward -= (ObstacleGenerator.fails*2)/self.time_multipliyer
+                    self.reward -= (ObstacleGenerator.fails) - (self.time_multipliyer+1.4)
                     self.done=True           
                            
             for event in pygame.event.get():
@@ -326,9 +326,9 @@ class StarShipGame:
                     ObstacleGenerator.deadObstacles+=1
                 
                     if alive :
-                        self.reward-=1
+                        self.reward-=3
                     else: 
-                        self.reward-= 10
+                        self.reward-=7
                         self.done = True
 
 
@@ -485,7 +485,7 @@ class StarShipGame:
             key="space"
 
         elif action == 5:
-            self.reward -= .15
+            self.reward -= .08
 
         self.key=key 
         self.action=action

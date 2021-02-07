@@ -4,16 +4,6 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 from tensorflow import keras
 from icecream import ic
-# shutdown gpu
-# import os
-# import tensorflow as tf
-
-# # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-
-# # if tf.test.gpu_device_name():
-# #     print('GPU found')
-# # else:
-# #     print("No GPU found")
 
 
 parser = argparse.ArgumentParser(

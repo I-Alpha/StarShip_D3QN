@@ -60,41 +60,43 @@ class DQN:
         self.action_space = action_space
         self.state_space = state_space
         self.epsilon = 1
-        self.gamma = .95
-        self.batch_size = 99
+        self.gamma = .98
+        self.batch_size =  64
         self.epsilon_min = .1
-        self.epsilon_decay = 0.00000025
+        self.epsilon_decay =0.00000025
         self.burn_limit = .001
-        self.learning_rate = 25e-5
+        self.learning_rate = 0.00025
         self.memory = RingBuf(1000000)
         self.optimizer_model = 'RMSProp'
-
+       
         if model == None:
-            self.model = self.build_LocallyConnected1D()  # dfault _model
+            self.model = self.build_Base()  # dfault _model
             # self.target_model = self.build_modelGPU()
         else:
             self.model = model
             # self.target_model =model
         self.modelname = self.model._name
+        time_ = datetime.datetime.now
+        self.savedir = "savedModels/"+self.model.name+"/"+time_().strftime("%m%d%h")+"/"
 
     def saveModel(self, score="n.a"):
         if DQN.currEpisode < 5:
             return
         time_ = datetime.datetime.now
         time_h = time_().strftime("%h")
-        savedir = "savedModels/"+self.model.name+"/"+time_().strftime("%m%d")+"/"
+      
         print("saving " + self.model.name + "-" +
               str(DQN.currEpisode)+str(int(score)) + "....")
         name = self.model.name+time_().strftime("%h") + \
             "_{}_{:0.2f}.h5".format(DQN.currEpisode, self.average[-1])
         try:
-            self.model.save(savedir+name, overwrite=True)
-            self.saveLog(name+".txt", savedir)
+            self.model.save(self.savedir+name, overwrite=True)
+            self.saveLog(name+".txt", self.savedir)
             print(name + " saved! ")
         except:
             print(name + " not saved! ")
         try:
-            pylab.savefig(savedir + name)
+            pylab.savefig(self.savedir + name)
         except:
             pass
 
@@ -325,39 +327,50 @@ class DQN:
         model.summary()
         return model
 
-    def build_LocallyConnected1D(self, input_shape=(114, 4), action_space=6, dueling=True):
+    def build_Base(self, input_shape=(4,112), action_space=6, dueling=True):
         self.network_size = 256
 
-        X_input = Input(shape=(4*114,))
+        X_input = Input(shape=(4*112,))
         X = X_input
-        X = Reshape(input_shape)(X)
+        X = Reshape(input_shape)(X)        
+        Y = Reshape((4,112))(X_input)
+        # X = Dense(64, kernel_initializer='he_uniform')(X)
+        # X =LeakyReLU(alpha=.6)(X)
+        # X = Dense(128, kernel_initializer='he_uniform')(X)
+        # X =LeakyReLU(alpha=.1)(X)  
+        # X = Conv1D(64, (2),  strides=(1), padding = "valid",
+        #                kernel_initializer='he_uniform')(X)
+        # X = LeakyReLU(alpha=.2)(X) 
+        #  
+        X = TimeDistributed(Dense(self.network_size/2))(X)   
+        X= TimeDistributed(LeakyReLU(alpha=.3))(X)    
+        X= Dense(self.network_size/4,activation="relu")(X)      
+        out_a = Flatten()(X)
+        
+        X = Conv1D(128, (2) ,(1))(Y)         
+        X = LeakyReLU(alpha=.3)(X)
+        X = Conv1D(128, (2) ,(2))(X)    
+        X = LeakyReLU(alpha=.3)(X)  
+        X = Dense(self.network_size,activation="relu")(X)
+        out_b = Flatten()(X)
+        
+        
+        
 
-        X = LocallyConnected1D(64, (5),  strides=(4),
-                               padding="valid", kernel_initializer='he_uniform')(X)
-        X = LeakyReLU(alpha=0.3)(X)
-        X = LocallyConnected1D(64, (4), strides=(3),
-                               padding="valid", kernel_initializer='he_uniform')(X)
-        X = LeakyReLU(alpha=0.3)(X)
-        X = LocallyConnected1D(64, (2), strides=(2),
-                               padding="valid", kernel_initializer='he_uniform')(X)
-        X = LeakyReLU(alpha=0.3)(X)
-        X = Dropout(.3)(X)
-        X = Flatten()(X)
-        X = Dense(self.network_size*2,  activation="relu",
-                  kernel_initializer='he_uniform')(X)
-        X = Dense(self.network_size,  activation="relu",
-                  kernel_initializer='he_uniform')(X)
-        X = Dense(64,  activation="relu",
-                  kernel_initializer='he_uniform')(X)
+        concatenated = concatenate([out_a, out_b])
+        X = (concatenated) 
 
+
+        X = Dense(self.network_size*2, 
+                  kernel_initializer='he_uniform',activation ="relu")(X)  
         if dueling:
             state_value = Dense(
-                1, kernel_initializer='he_uniform',activation='softmax')(X)
+                1, kernel_initializer='he_uniform' )(X)
             state_value = Lambda(lambda s: K.expand_dims(
                 s[:, 0], -1), output_shape=(action_space,))(state_value)
 
             action_advantage = Dense(
-                action_space, kernel_initializer='he_uniform', activation="linear")(X)
+                action_space, kernel_initializer='he_uniform') (X)
             action_advantage = Lambda(lambda a: a[:, :] - K.mean(
                 a[:, :], keepdims=True), output_shape=(action_space,))(action_advantage)
 
@@ -367,7 +380,7 @@ class DQN:
             X = Dense(action_space, activation="relu",
                       kernel_initializer='he_uniform')(X)
 
-        model = Model(inputs=X_input, outputs=X, name='LocallyConnected1D')
+        model = Model(inputs=X_input, outputs=X, name='Base1model')
         model.compile(loss=huber_loss, optimizer=Adam(
             lr=self.learning_rate),  metrics=["accuracy"])
 
@@ -449,7 +462,7 @@ gl_loss = 0
 def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None):
     loss = []
     action_space = 6
-    state_space = 4*114
+    state_space = 4*112
     max_steps = 98*9
     # agent =ic(DQN(action_space, state_space,  model=ic(keras.models.load_model('CNN-990--0.40.h5'))))
     # for e in range(990,episode):
@@ -474,10 +487,10 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None):
         for i in range(max_steps):
             if i != 0:
                 if i % 98 == 0:
-                    env.time_multipliyer *= 1.4
-                if i % 4 == 0:
-                    env.reward += env.time_multipliyer * 0.04 + i * 1e-7
-                    env.time_multipliyer += 1e-4
+                    env.time_multipliyer *= 1.5
+        
+                env.time_multipliyer += 0.01
+                
 
             if (env.save):
                 agent.saveModel(score)

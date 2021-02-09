@@ -1,5 +1,4 @@
 from keras.callbacks import History
-from ring_buf import RingBuf
 import time
 import datetime
 from tensorflow.keras import initializers
@@ -34,7 +33,7 @@ from icecream import ic
 from DQN_agent import *
 #Save funcrions 
 
-lastCheckpoint = 757
+lastCheckpoint = 498
 
 
 def saveModel(obj, score="n.a",checkpoint = 1):

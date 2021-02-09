@@ -164,102 +164,12 @@ class StarShipGame:
         for t, (k, v) in enumerate(livep.items()):
                 state[k]=v 
         state =[ *state.values()]
+
         self.image_memory = np.roll(self.image_memory, 1, axis = 0)
         self.image_memory[0,:,:] = state
         #np.select(conditions, choices, default=0)
         return np.expand_dims(self.image_memory, axis=0)
-    
-    def game_loop(self):
-           
-            self.obstacleGenerator.updateAll()                
-            StarShipGame.liveProjectiles=self.spaceShipSprite.liveProjectiles             
-            ObstacleGenerator.liveProjectiles=StarShipGame.liveProjectiles        
-            hit = self.obstacleGenerator.checkHits()       
-            if hit:
-                self.reward+=1
-                hit=False            
-            if ObstacleGenerator.p_out_of_bounds:
-                self.reward-=.3
-                ObstacleGenerator.p_out_of_bounds=0
-            self.checkHits()
-            if (ObstacleGenerator.fails) > 0 :
-                    self.reward -= (ObstacleGenerator.fails) - (self.time_multipliyer+1.4)
-                    self.done=True           
-                           
-            for event in pygame.event.get():
-                if event.type == QUIT:           # terminates the game when game window is closed
-                    pygame.quit()
-                    sys.exit()
-                elif event.type == KEYDOWN:
-                    if event.key == K_ESCAPE:    # terminates the game when esc is pressed
-                        pygame.quit()
-                        sys.exit()      
-                    if event.key == K_s:  
-                        self.save=True
 
-    def play(self):
-        self.playing = True     
-  
-        while True: #begin gameloop 
-            # handle mouse and keyboard events   
-            self.clock.tick(self.FPS)
-            print(self.reward)
-            self.reward =0
-            self.game_loop()            
-            keys = pygame.key.get_pressed()
-            self.spaceShipSprite.move(keys)
-
-            #termination condition 
-            if self.check_shipalive() or ObstacleGenerator.fails>0 or Obstacle.fails  > 0: 
-               ObstacleGenerator.reset()
-               self.spaceShipSprite.liveProjectiles=[]
-               self.done=True 
-               self.reward += int(self.clock.get_time()/1000)
-               pygame.quit()
-               sys.exit()
-            
-            if self.graphics:              
-                self.draw_all()  
-                pygame.display.update()
-        pygame.quit()
-    
-    
-    def resetNew(self):   
-        pygame.init()     
-        self.spaceShipSprite = SpaceShipSprite(StarShipGame.screen,r'Assets\imgs\triangleShip.png',startPosition=(self.screen_size[0]/2,self.screen_size[1]/2))   
-        SpaceShipSprite.liveProjectiles=[]  
-        ObstacleGenerator.reset()
-        self.obstacleGenerator = ObstacleGenerator(StarShipGame.screen,r'Assets\imgs\brick.png')
-        StarShipGame.liveObstacles = []
-        StarShipGame.deadObstacles = 0
-        StarShipGame.liveProjectiles =[]      
-        ObstacleGenerator.fails=0
-        Obstacle.fails=0
-        self.score =0
-        self.counter =0
-        self.hit=0
-        self.fails=0
-        self.x =0
-        self.action=0
-        self.key=0
-        self.score =0
-        self.state_size = (self.REM_STEP, self.ROWS, self.COLS)
-        self.reward= 0
-        self.time_multipliyer =1
-        StarShipGame.fails =0
-        self.done=False  
-        self.time_time1 = time.time()
-        self.time_time2 = time.time()
-        self.clock = pygame.time.Clock()     
-        self.obstacleGenerator.generate(0);
-        StarShipGame.liveObstacles =  self.obstacleGenerator.liveObstacles  
-        for i in range(self.REM_STEP):
-            state = self.getEnvStateOnScreen()
-        # for i in obs_collection:
-        #     state.append(i) 
-      
-        return (state).flatten()
-  
     def check_shipalive(self):
                 if self.spaceShipSprite.lives <1 and self.spaceShipSprite.health==0:
                      print("You died !") 
@@ -335,83 +245,124 @@ class StarShipGame:
             self.spaceShipSprite.draw()            
             self.obstacleGenerator.drawAll() 
 
+    def Obj_state(self,obs):
+        aCenterX = (obs.currentPos[0]) + (obs.image_size[0]/2)
+        aCenterY =(obs.currentPos[1]) + (obs.image_size[1]/2)
+        formatdCX = aCenterX*(1/self.screen_size[0])
+        formatdCY =aCenterY*(1/self.screen_size[1])
+        offsetCX =   0.5 - formatdCX
+        offsetCY =  0.5 - formatdCY               
+        w= obs.image_size[0]*(1/self.screen_size[0])
+        h= obs.image_size[1]*(1/self.screen_size[1])
+        return formatdCX,formatdCY, *self.getOffsets_formatted(obs), offsetCX,offsetCY,w,h
+ 
 
-    
+    def getOffsets_formatted(self,obs):
+        aCenterX = (obs.offset[0]) + (obs.image_size[0]/2)
+        aCenterY =(obs.offset[1]) + (obs.image_size[1]/2)
+        offsetX = aCenterX*(1/self.screen_size[0])
+        offsetY =aCenterY*(1/self.screen_size[1])  
 
 
-    def step(self,action):
-        self.done=0
-        self.reward =0
-        key = "nothing"
-        #key pressed
-        
-        #left
-        if action == 0:
-            self.reward -= .1
-            key="left"
-         
-        #right
-        elif action == 1: 
-            self.reward -= .1
-            key="right"
-        #Up
-        elif action == 2: 
-            self.reward -= .1
-            key="up"
-        #Down
-        elif action == 3: 
-            self.reward -= .1
-            key="down"
 
-        #Space-Shoot
-        elif action == 4: 
-            self.reward -=.1      
-            key="space"
+        return offsetX, offsetY
+   
 
-        elif action == 5:
-            self.reward -= .1
+    def game_loop(self):
+           
+            self.obstacleGenerator.updateAll()                
+            StarShipGame.liveProjectiles=self.spaceShipSprite.liveProjectiles             
+            ObstacleGenerator.liveProjectiles=StarShipGame.liveProjectiles        
+            hit = self.obstacleGenerator.checkHits()       
+            if hit:
+                self.reward+=1
+                hit=False            
+            if ObstacleGenerator.p_out_of_bounds:
+                self.reward-=.3
+                ObstacleGenerator.p_out_of_bounds=0
+            self.checkHits()
+            if (ObstacleGenerator.fails) > 0 :
+                    self.reward -= (ObstacleGenerator.fails) - (self.time_multipliyer+1.4)
+                    self.done=True           
+                           
+            for event in pygame.event.get():
+                if event.type == QUIT:           # terminates the game when game window is closed
+                    pygame.quit()
+                    sys.exit()
+                elif event.type == KEYDOWN:
+                    if event.key == K_ESCAPE:    # terminates the game when esc is pressed
+                        pygame.quit()
+                        sys.exit()      
+                    if event.key == K_s:  
+                        self.save=True
 
-        self.key=key 
-        self.action=action
-
-        self.spaceShipSprite.move(key)
-        self.game_loop() 
-        obs_collection=[]
-        n=len(self.obstacleGenerator.liveObstacles)
-        if  n  < 5:
-            x=5-n
-            self.obstacleGenerator.generate(delay=0,num=x)
-        StarShipGame.liveObstacles =self.obstacleGenerator.liveObstacles       
-        obs_collection=[]          
-        for obs in  self.obstacleGenerator.liveObstacles :
-               x,y= self.Obj_state(obs)
-               obs_collection.append([x,y])
-        agentX,agentY = self.Obj_state(self.spaceShipSprite)    
-        state = [
-            #*self.getPixelsOnScreen()              
-		    [agentX,agentY],
-            *obs_collection, 
-            [-1,self.obstacleGenerator.hits],          
-            [-1,len(self.obstacleGenerator.liveObstacles)],
-            [-1,(self.obstacleGenerator.deadObstacles)], 
-            [-1,self.obstacleGenerator.fails] ,
-            [-1,self.clock.get_time()] 
-          ]
-        
-        pygame.Surface.unlock(self.screen) 
-        # for i in obs_collection:
-        #     state.append(i)
-        # for i in obs_collection:
-        #     state.append(i)
-        if self.graphics:  
+    def play(self):
+        self.playing = True     
+  
+        while True: #begin gameloop 
+            # handle mouse and keyboard events   
             self.clock.tick(self.FPS)
-            self.draw_all()           # generates new frame
-            pygame.display.update()            
-      
-      
-        return self.reward, state,self.done
+            print(self.reward)
+            self.reward =0
+            self.game_loop()            
+            keys = pygame.key.get_pressed()
+            self.spaceShipSprite.move(keys)
 
-    def stepNew(self,action):
+            #termination condition 
+            if self.check_shipalive() or ObstacleGenerator.fails>0 or Obstacle.fails  > 0: 
+               ObstacleGenerator.reset()
+               self.spaceShipSprite.liveProjectiles=[]
+               self.done=True 
+               self.reward += int(self.clock.get_time()/1000)
+               pygame.quit()
+               sys.exit()
+            
+            if self.graphics:              
+                self.draw_all()  
+                pygame.display.update()
+        pygame.quit()
+    
+    
+    def reset(self):   
+        pygame.init()     
+        self.spaceShipSprite = SpaceShipSprite(StarShipGame.screen,r'Assets\imgs\triangleShip.png',startPosition=(self.screen_size[0]/2,self.screen_size[1]/2))   
+        SpaceShipSprite.liveProjectiles=[]  
+        ObstacleGenerator.reset()
+        self.obstacleGenerator = ObstacleGenerator(StarShipGame.screen,r'Assets\imgs\brick.png')
+        StarShipGame.liveObstacles = []
+        StarShipGame.deadObstacles = 0
+        StarShipGame.liveProjectiles =[]      
+        ObstacleGenerator.fails=0
+        Obstacle.fails=0
+        self.score =0
+        self.counter =0
+        self.hit=0
+        self.fails=0
+        self.x =0
+        self.action=0
+        self.key=0
+        self.score =0
+        self.image_memory = np.zeros((self.REM_STEP, self.ROWS, self.COLS))
+        self.state_size = (self.REM_STEP, self.ROWS, self.COLS)
+   
+        self.reward= 0
+        self.time_multipliyer =1
+        StarShipGame.fails =0
+        self.done=False  
+        self.time_time1 = time.time()
+        self.time_time2 = time.time()
+        self.clock = pygame.time.Clock()     
+        self.obstacleGenerator.generate(0);
+        StarShipGame.liveObstacles =  self.obstacleGenerator.liveObstacles  
+        for i in range(self.REM_STEP):
+            state = self.getEnvStateOnScreen()
+        # for i in obs_collection:
+        #     state.append(i) 
+      
+        return (state).flatten()
+  
+     
+    def step(self,action):
         
         self.counter += 1
         self.done=0
@@ -450,11 +401,15 @@ class StarShipGame:
 
         self.spaceShipSprite.move(key)
         self.game_loop() 
+        
         obs_collection=[]
         n=len(self.obstacleGenerator.liveObstacles)
         if  n  < 5:
             x=5-n
             self.obstacleGenerator.generate(delay=0,num=x)
+        if self.done:        
+            state = self.getEnvStateOnScreen()
+            return self.reward, state.flatten(),self.done
         StarShipGame.liveObstacles =self.obstacleGenerator.liveObstacles    
         state = self.getEnvStateOnScreen()
         # if  np.any(state[:,0] == 1):
@@ -479,28 +434,7 @@ class StarShipGame:
         
         return self.reward, state.flatten(),self.done
      
-    def Obj_state(self,obs):
-        aCenterX = (obs.currentPos[0]) + (obs.image_size[0]/2)
-        aCenterY =(obs.currentPos[1]) + (obs.image_size[1]/2)
-        formatdCX = aCenterX*(1/self.screen_size[0])
-        formatdCY =aCenterY*(1/self.screen_size[1])
-        offsetCX =   0.5 - formatdCX
-        offsetCY =  0.5 - formatdCY               
-        w= obs.image_size[0]*(1/self.screen_size[0])
-        h= obs.image_size[1]*(1/self.screen_size[1])
-        return formatdCX,formatdCY, *self.getOffsets_formatted(obs), offsetCX,offsetCY,w,h
- 
-
-    def getOffsets_formatted(self,obs):
-        aCenterX = (obs.offset[0]) + (obs.image_size[0]/2)
-        aCenterY =(obs.offset[1]) + (obs.image_size[1]/2)
-        offsetX = aCenterX*(1/self.screen_size[0])
-        offsetY =aCenterY*(1/self.screen_size[1])  
-
-
-
-        return offsetX, offsetY
-   
+     
 if __name__ == '__main__':
         env = StarShipGame(graphics=True)
         env.FPS = 20

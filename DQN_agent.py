@@ -1,5 +1,4 @@
 from keras.callbacks import History
-from ring_buf import RingBuf
 import time
 import datetime
 from tensorflow.keras import initializers
@@ -56,14 +55,14 @@ class DQN:
         self.gamma = .98
         self.batch_size =  64
         self.epsilon_min = .1
-        self.epsilon_decay =0.00000035
+        self.epsilon_decay =0.00000025
         self.burn_limit = .001
-        self.learning_rate = 0.00025
+        self.learning_rate = 0.00021
         self.memory = RingBuf(10000)
         self.optimizer_model = 'RMSProp'
         self.log_data=[]
         if model == None:
-            self.model = build_Base(self)  # dfault _model
+            self.model =  FCTime_distributed_model(self)  # dfault _model
             # self.target_model = self.build_modelGPU()
         else:
             self.model = model
@@ -121,7 +120,7 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None):
     agent = DQN(action_space, state_space,  model=model)
     agent.env_name = "StarShip"
     for e in range(lchk, episode):
-        state = env.resetNew()
+        state = env.reset()
         ## Burnrate function
         # if agent.learning_rate < agent.burn_limit and DQN.currEpisode > 0:
         #     # after 1000 iterations learning rate will be 0.001
@@ -147,7 +146,7 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None):
                 saveModel(agent,score)
                 env.save = False
             action = agent.act(state)
-            reward, next_state, done = env.stepNew(action)
+            reward, next_state, done = env.step(action)
             next_state = env.getEnvStateOnScreen()  # do i need this?
             score += reward
             funcs = [lambda: (np.reshape(next_state, (1, state_space))), lambda: (
@@ -194,17 +193,16 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None):
         # if done :
         #     file_writer.flush()
         if DQN.currEpisode % ch == 0:
-             saveModel(agent,score)
-             saveModel(agent,score)
+             saveModel(agent,score) 
 
     def test(self):
         for e in range(self.EPISODES):
-            state = env.resetNew()
+            state = env.reset()
             done = False
             i = 0
             while not done:
                 action = np.argmax(self.model.predict(state))
-                next_state, reward, done, _ = env.stepNew(action)
+                next_state, reward, done, _ = env.step(action)
                 i += 1
                 if done:
                     print("episode: {}/{}, score: {}".format(e, self.EPISODES))

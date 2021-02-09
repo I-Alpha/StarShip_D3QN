@@ -201,7 +201,7 @@ def logloss(y_true, y_pred):  # policy loss
 def sumofsquares(y_true, y_pred):  # critic loss
         return K.sum(K.square(y_pred - y_true), axis=-1)
 
-def FCTime_distributed_model(self, input_shape=(4,112,1,), action_space=6, dueling=True):
+def FCTime_distributed_model(self, input_shape=(4,112), action_space=6, dueling=True):
         self.network_size = 256
 
         X_input = Input(shape=(4*112,))
@@ -213,43 +213,41 @@ def FCTime_distributed_model(self, input_shape=(4,112,1,), action_space=6, dueli
         const_init = initializers.constant(1e-2)
         X = Reshape(input_shape)(X)
         # X =Conv1D(4,(4),(4),activation="relu",) (X)
-        # X = Conv2D(1, (1,4), strides=(1,1),padding="same",activation="relu", kernel_initializer=x_init,   data_format="channels_first")(X)
-        X = TimeDistributed(Dense(8, kernel_initializer=x_init))(X)  
-        X = TimeDistributed(LeakyReLU(alpha=.1))(X)        
-        X = TimeDistributed(Dense(4, kernel_initializer=x_init))(X)  
-        X = TimeDistributed(LeakyReLU(alpha=.1))(X) 
-        X = Flatten()(X)       
-        X = Dense(256 ,activation="relu",kernel_initializer=const_init,use_bias=True, bias_initializer=truncatedn_init)(X)
-        X = Dense(256, activation="relu", kernel_initializer=const_init,use_bias=True, bias_initializer=truncatedn_init)(X)
+        # X = Conv2D(1, (1,4), strides=(1,1),padding="same",activation="relu", kernel_initializer=x_init,   data_format="channels_first")(X)      
+        X = (Dense(128, kernel_initializer=y_init,))(X)
+        X=  LeakyReLU(alpha=.2)(X)             
+        X = Flatten()(X)   
+        X = (Dense(512, kernel_initializer=y_init,activation="relu",))(X)
+        X = (Dense(256, kernel_initializer=y_init,activation="relu",))(X)                         
         # X = Conv2D(64, 4, strides=(2),padding="valid",activation="elu", kernel_initializer=x_init,   data_format="channels_first")(X)
         # X = Conv2D(128, 4, strides=(2),padding="valid",activation="elu",kernel_initializer=x_init,   data_format="channels_first")(X) 3cnn
         # 'Dense' is the basic form of a neural network layer
-        # Input Layer of state size(4) and Hidden Layer with 512 nodes
-        # X = Dense(512, activation="relu", kernel_initializer=x_init)(X)
+        # # Input Layer of state size(4) and Hidden Layer with 512 nodes
+        # X = Dense(256, activation="relu", kernel_initializer=x_init)(X)
+        # X = Dense(64, activation="relu", kernel_initializer=x_init)(X)
         # # X = Dense(64, activation="relu", kernel_initializer=x_init)(X)
         # X = Dense(256, activation="relu", kernel_initializer=const_init,use_bias=True, bias_initializer=truncatedn_init)(X) 
         # # Hidden layer with 256 nodes 
 
         # # Hidden layer with 64 nodes
         # X = Dense(64, activation="relu", kernel_initializer=truncatedn_init, bias_initializer=const_init)(X)
-
         if dueling:
-            state_value = Dense(1, kernel_initializer=x_init , activation= "softmax")(X)
+            state_value = Dense(1, kernel_initializer=y_init,activation='softmax', )(X)
             state_value = Lambda(lambda s: K.expand_dims(
                 s[:, 0], -1), output_shape=(action_space,))(state_value)
 
             action_advantage = Dense(
-                action_space, kernel_initializer=x_init , activation="linear")(X)
+                action_space, kernel_initializer=y_init,activation='linear',)(X)
             action_advantage = Lambda(lambda a: a[:, :] - K.mean(
                 a[:, :], keepdims=True), output_shape=(action_space,))(action_advantage)
 
             X = Add()([state_value, action_advantage])
         else:
-            # Output Layer with # of actions: 2 nodes (left, right)
+            # Output Layer with # of actions: 6 nodes (left, right)
             X = Dense(action_space, activation="relu",
                       kernel_initializer='he_uniform')(X)
 
-        model = Model(inputs=X_input, outputs=X, name='FCTime_distributed_model')
+        model = Model(inputs=X_input, outputs=X, name='FC_modelv2_')
         model.compile(loss=huber_loss, optimizer=Adam(
             lr=self.learning_rate),  metrics=["accuracy"])
 
@@ -263,37 +261,6 @@ def build_Base(self, input_shape=(4,112,), action_space=6, dueling=True):
         X_input = Input(shape=(4*112,))
         X = X_input
         Y = Reshape(input_shape)(X_input)
-        
-        Z = Reshape((4,112,1))(X_input)
-        # X = Dense(64, kernel_initializer='he_uniform')(X)
-        # X =LeakyReLU(alpha=.6)(X)
-        # X = Dense(128, kernel_initializer='he_uniform')(X)
-        # X =LeakyReLU(alpha=.1)(X)  
-        # X = Conv1D(64, (2),  strides=(1), padding = "valid",
-        #                kernel_initializer='he_uniform')(X)
-        # X = LeakyReLU(alpha=.2)(X) 
-        #     
-         
-        X = Dense(self.network_size/2, 
-                  kernel_initializer='he_uniform')(Y)    
-        X=  LeakyReLU(alpha=.4)(X)               
-        out_a = X# Flatten()(X) 
-
-        X =TimeDistributed(Dense(1, activation="softmax", 
-                  kernel_initializer='he_uniform'))(Z) 
-        X = Reshape((4,112))(X)
-        X = Dense(self.network_size/2,activation="tanh", 
-                  kernel_initializer='he_uniform')(Y)    
-    
-        out_b = X #
-        
-        
-        
-
-        concatenated = concatenate([out_a, out_b])    
-        X = (concatenated) 
-        X = MaxPooling1D(2)(X)
-        X = Flatten()(X)#out_b
         X = Dense(self.network_size*2, 
                   kernel_initializer='he_uniform',activation ="relu")(X)  
         X = Dense(self.network_size, 
@@ -315,7 +282,7 @@ def build_Base(self, input_shape=(4,112,), action_space=6, dueling=True):
             X = Dense(action_space, activation="relu",
                       kernel_initializer='he_uniform')(X)
 
-        model = Model(inputs=X_input, outputs=X, name='Base_model')
+        model = Model(inputs=X_input, outputs=X, name='Base_model-b32')
         model.compile(loss=huber_loss, optimizer=Adam(
             lr=self.learning_rate),  metrics=["accuracy"])
 

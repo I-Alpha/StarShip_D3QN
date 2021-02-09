@@ -53,16 +53,17 @@ class DQN:
         self.state_space = state_space
         self.epsilon = 1
         self.gamma = .98
-        self.batch_size =  64
+        self.batch_size = 32
         self.epsilon_min = .1
-        self.epsilon_decay =0.00000025
+        self.epsilon_decay = 0.999
         self.burn_limit = .001
         self.learning_rate = 0.00021
+        self.replay_freq = 1
         self.memory = RingBuf(10000)
         self.optimizer_model = 'RMSProp'
         self.log_data=[]
         if model == None:
-            self.model =  FCTime_distributed_model(self)  # dfault _model
+            self.model =  build_Base(self)  # dfault _model
             # self.target_model = self.build_modelGPU()
         else:
             self.model = model
@@ -84,6 +85,7 @@ class DQN:
 
         if self.memory.__len__() < self.batch_size:
             return
+
         minibatch = random.sample(
             self.memory.data[0:self.memory.__len__()], self.batch_size)
         states = np.array([i[0] for i in minibatch], dtype=float)
@@ -113,7 +115,7 @@ gl_loss = 0
 
 
 def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None):
-    loss = []
+    #loss = []
     action_space = 6
     state_space = 4*112
     max_steps = 98*9
@@ -161,7 +163,8 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None):
             agent.remember(state, action, reward, next_state, done)
             state = next_state
 
-            agent.replay()
+            for i in range(agent.replay_freq):
+                agent.replay()
 
             # Add values to Tensorboard
 

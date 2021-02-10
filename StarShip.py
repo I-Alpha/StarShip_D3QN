@@ -344,7 +344,6 @@ class StarShipGame:
         self.score =0
         self.image_memory = np.zeros((self.REM_STEP, self.ROWS, self.COLS))
         self.state_size = (self.REM_STEP, self.ROWS, self.COLS)
-   
         self.reward= 0
         self.time_multipliyer =1
         StarShipGame.fails =0

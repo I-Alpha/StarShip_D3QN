@@ -10,7 +10,7 @@ parser = argparse.ArgumentParser(
     description='Args for initialising training and testing of RL Agent')
 parser.add_argument('--mode', '-m', default='train')
 parser.add_argument('--model', '--mp', default=None)
-parser.add_argument('--epochs', '-e', type=int,default=4000)
+parser.add_argument('--epochs', '-e', type=int,default=2000)
 parser.add_argument('--learnrate', '-l', default=.001)
 parser.add_argument('--plot', '-p', default=True)
 parser.add_argument('--graphics', '-g', default=False)
@@ -22,7 +22,7 @@ args = parser.parse_args()
  
 if __name__ == '__main__': 
     if args.checkpoint == None:  
-        args.checkpoint = 500
+        args.checkpoint = 400
         print("\n\n\n --checkpoint not given.\n Default checkpoint set at {} epochs.".format(args.checkpoint))
     else :
         print("checkpoint at {}".format(args.checkpoint))
@@ -33,6 +33,7 @@ if __name__ == '__main__':
             if args.model != None:
                 try: 
                         model = keras.models.load_model(args.model)
+                        model.summary()
                         print("\n\n\n  Training beginning....\n\n  Model  {  " + args.model + "  }  has been loaded! \n\n Calling train function.....\n\n")                       
                 except :
                         print("Error.Check model is not incompatible with current enviroment configuration")

@@ -2,8 +2,7 @@ from keras.callbacks import History
 import time
 import datetime
 from tensorflow.keras import initializers
-import keras
-import pylab
+import keras 
 from tensorflow import keras
 from keras.layers import Input, Conv2D, Dense, concatenate
 from memory_profiler import profile
@@ -33,7 +32,7 @@ from icecream import ic
 from DQN_agent import *
 #Save funcrions 
 
-lastCheckpoint = 498
+lastCheckpoint = 0
 
 
 def saveModel(obj, score="n.a",checkpoint = 1):
@@ -87,38 +86,33 @@ def saveLog(obj, name="lastRun.txt", dir="logs/fit/", autosavep =True):
                 pass
 
 #plot functions
-pylab.figure(figsize=(18, 9))
-
-def PlotModel(obj, score, episode):
-
-        obj.scores.append(score)
-        obj.episodes.append(episode)
-        obj.average.append(sum(obj.scores[-50:]) / len(obj.scores[-50:]))
-        pylab.plot(obj.episodes, obj.average, 'r')
-        pylab.plot(obj.episodes, obj.scores, 'b')
-        pylab.ylabel('Score', fontsize=18)
-        pylab.xlabel('Steps', fontsize=18)
-        obj.log_data.append((episode, score))
-        try:
-            pylab.savefig(obj.modelname+"_CNN.png")
-        except OSError:
-            pass
-
-        return str(obj.average[-1])[:5],obj
+figures = {}
+plt.grid()
+def PlotData(title,values,labels):         
+    #First value is x- value
+        epochs = range(1, len(values[0])+1)
+        for v,i in enumerate(values):
+            plt.plot(epochs,i, label=labels[v])
+        plt.grid()
+        plt.xlabel('Epochs')
+        plt.ylabel('Loss')
+        plt.legend()       
+        plt.tight_layout()
+        plt.savefig(title+".png")
+        plt.clf()
  
-def plot_loss(obj,ep, loss):
+def mkdir_p(mypath):
+    '''Creates a directory. equivalent to using mkdir -p on the command line'''
+
+    from errno import EEXIST
+    from os import makedirs,path
+
     try:
-        plt.plot([i for i in range(ep)], loss)
-        plt.xlabel('episodes')
-        plt.ylabel('reward')
-        plt.title('Episodal Loss')
-        plt.savefig('logs\\loss_plot.png')
-        saveLog(obj,obj.log_data, 'logs\\loss_plot.txt')
-
-    except:
-        print("loss_plot error. Skipping plotting.\n")
-        pass
-
+        makedirs(mypath)
+    except OSError as exc: # Python >2.5
+        if exc.errno == EEXIST and path.isdir(mypath):
+            pass
+        else: raise
 
 class RingBuf:
     def __init__(self, size):

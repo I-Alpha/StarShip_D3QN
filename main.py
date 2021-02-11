@@ -12,7 +12,6 @@ parser.add_argument('--mode', '-m', default='train')
 parser.add_argument('--model', '--mp', default=None)
 parser.add_argument('--epochs', '-e', type=int,default=2000)
 parser.add_argument('--learnrate', '-l', default=.001)
-parser.add_argument('--plot', '-p', default=True)
 parser.add_argument('--graphics', '-g', default=False)
 parser.add_argument('--checkpoint', '-chk',type=int, default=None)
 parser.add_argument('--last_epoch', '-le', type=int, default=-1) 
@@ -46,12 +45,6 @@ if __name__ == '__main__':
             else:
                     print(' \n No model specified. \n Building new model for training.\n\n')
                     loss = train_dqn(args.epochs, args.graphics, ch=args.checkpoint)
-
-    if args.plot:
-                plt.plot([i for i in range(args.epochs)], loss)
-                plt.xlabel('episodes')
-                plt.ylabel('reward')
-                plt.show()
 
     else:
         pass

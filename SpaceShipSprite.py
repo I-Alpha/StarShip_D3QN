@@ -24,6 +24,7 @@ class SpaceShipSprite(DestructableObject):
                self.ammoCounter =6500
                self.firedAt=0      
                self.maxProjectiles_on_screen =20
+               SpaceShipSprite.liveProjectiles =[]
       def move(self,keys):
            event = "none"         
            if  isinstance(keys,type(pygame.key.get_pressed())):

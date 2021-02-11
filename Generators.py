@@ -25,6 +25,7 @@ class ObstacleGenerator():
        self.levelHeight = 70 
        self.obsimg = Obstacle(screen,image).image_size
        self.initilaizeRandom()
+       self.reset()
       
     def drawAll(self): 
            for i in ObstacleGenerator.liveObstacles: 
@@ -130,7 +131,7 @@ class ObstacleGenerator():
            return False
 
            
-    def reset():
+    def reset(self):
         ObstacleGenerator.deadProjectiles=0
         ObstacleGenerator.liveProjectiles=[]
         ObstacleGenerator.liveObstacles = []
@@ -141,6 +142,5 @@ class ObstacleGenerator():
         ObstacleGenerator.fails=0;
         Obstacle.fails =0
         ObstacleGenerator.p_out_of_bounds=0
-        Projectile.reset()
-        Obstacle.reset()
+        Projectile.reset() 
         

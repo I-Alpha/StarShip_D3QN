@@ -6,9 +6,6 @@ import copy
 
 class Obstacle(DestructableObject): 
 
-       liveProjectiles =[] 
-       fails =0 
-
        def __init__(self,screen,image,attackDmg=1,damage=0,health=1,movespeed=1,startPosition=(0.0,0.0),name="Obstacle-"):            
                super().__init__(screen,image,attackDmg,damage,health,startPosition,movespeed)  
                self.name = name      
@@ -34,6 +31,3 @@ class Obstacle(DestructableObject):
               Obstacle.fails+=1; 
              
        
-       def reset():
-                liveProjectiles =[] 
-                fails =0  

@@ -39,7 +39,7 @@ class StarShipGame:
         self.obstacleGenerator.generate(0); 
         StarShipGame.liveObstacles = self.obstacleGenerator.liveObstacles
         self.save=False 
-        self.REM_STEP = 4
+        self.REM_STEP = 3
         self.ROWS =  1
         self.COLS = 112
         self.image_memory = np.zeros((self.REM_STEP, self.ROWS, self.COLS))
@@ -327,7 +327,6 @@ class StarShipGame:
         pygame.init()     
         self.spaceShipSprite = SpaceShipSprite(StarShipGame.screen,r'Assets\imgs\triangleShip.png',startPosition=(self.screen_size[0]/2,self.screen_size[1]/2))   
         SpaceShipSprite.liveProjectiles=[]  
-        ObstacleGenerator.reset()
         self.obstacleGenerator = ObstacleGenerator(StarShipGame.screen,r'Assets\imgs\brick.png')
         StarShipGame.liveObstacles = []
         StarShipGame.deadObstacles = 0

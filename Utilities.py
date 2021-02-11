@@ -36,47 +36,38 @@ lastCheckpoint = 0
 
 
 def saveModel(obj, score="n.a",checkpoint = 1):
-        #save model as .h5 with png and loss history.txt
-
-
+        #save model as .h5 with png and loss history.txt        
+        mkdir_p(obj.savedir)
         if obj.currEpisode < 5:
             return
         time_ = datetime.datetime.now
         time_h = time_().strftime("%h")      
-        print("saving " + obj.model.name + "-" +
-              str(obj.currEpisode)+str(int(score)) + "....")
-        name = obj.model.name+time_().strftime("%h") + \
-            "_{}_{:0.2f}.h5".format(obj.currEpisode+lastCheckpoint-2, obj.average[-1])
+        print("saving " + obj.model.name + "-epochs-<" +
+              str(obj.currEpisode) +">_"+str(int(score)) + "....")
+        name = obj.model.name+ \
+            "_epochs-<{}>_avg<{:0.2f}>.h5".format(obj.currEpisode+lastCheckpoint-1, obj.average[-1])
         try:
             obj.model.save(obj.savedir+name, overwrite=True)
             print(name + " saved! ")
         except:
             print(name + " not saved! ")
             return
-        try:
-            saveLog(obj,name+".txt", obj.savedir,False)
-            print(name + ".txt saved!")
-        except:
-            print("Error. Unable to save " +name  + ".txt")
-            return
-        try:
-            pylab.savefig(obj.savedir + name+".png")
-            print(name+".png saved!")
-        except:
-            print(name+".png not saved!")
-            pass
-
-def saveLog(obj, name="lastRun.txt", dir="logs/fit/", autosavep =True):
+      
+        saveLog(obj, name+".txt", obj.savedir,autosavep=False)
+     
+   
+def saveLog(obj, name="lastRun.txt",  dir="", autosavep =True):
     # Auto save for saving loss plot with txt
+        mkdir_p(dir)
         if obj.currEpisode < 5:
             return
         try:
             f = open(dir+name, "w")
-            for i, q in obj.log_data:
+            for i, q in enumerate(obj.log_data):
                 f.write("{},{}\n".format(i, q))
             f.close()
         except:
-            print("Unable to write log txt")
+            print("Unable to write log.txt")
             return
         if autosavep:
             try:
@@ -88,14 +79,14 @@ def saveLog(obj, name="lastRun.txt", dir="logs/fit/", autosavep =True):
 #plot functions
 figures = {}
 plt.grid()
-def PlotData(title,values,labels):         
+def PlotData(title,axeslabels=["Epsiodes","Loss"],values=[],labels=[]):         
     #First value is x- value
         epochs = range(1, len(values[0])+1)
         for v,i in enumerate(values):
             plt.plot(epochs,i, label=labels[v])
         plt.grid()
-        plt.xlabel('Epochs')
-        plt.ylabel('Loss')
+        plt.xlabel(axeslabels[0])
+        plt.ylabel(axeslabels[1])
         plt.legend()       
         plt.tight_layout()
         plt.savefig(title+".png")

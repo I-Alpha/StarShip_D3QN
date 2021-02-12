@@ -191,26 +191,31 @@ def logloss(y_true, y_pred):  # policy loss
 def sumofsquares(y_true, y_pred):  # critic loss
         return K.sum(K.square(y_pred - y_true), axis=-1)
 
-def FCTime_distributed_model(self, input_shape=(4,112), action_space=6, dueling=True):
-        self.network_size = 256
 
-        X_input = Input(shape=(4*112,))
+def FCTime_distributed_model(self, action_space=6, dueling=True):
+        self.network_size = 256
+        X_input = Input(shape=(self.REM_STEP*112))
+        input_reshape=(self.REM_STEP,112,1)
+        
         X = X_input
         truncatedn_init = initializers.TruncatedNormal(0, 1e-2)
         x_init = "he_uniform"
         y_init = initializers.glorot_uniform()
 
         const_init = initializers.constant(1e-2)
-        X = Reshape(input_shape)(X)
+        X = Reshape(input_reshape)(X)
         # X =Conv1D(4,(4),(4),activation="relu",) (X)
         # X = Conv2D(1, (1,4), strides=(1,1),padding="same",activation="relu", kernel_initializer=x_init,   data_format="channels_first")(X)      
-        X = TimeDistributed(Dense(512, kernel_initializer=y_init))(X)
-        X = TimeDistributed(LeakyReLU(0.4))(X)
-        X = TimeDistributed(Dense(128, kernel_initializer=y_init))(X)
-        X = TimeDistributed(LeakyReLU(0.4))(X)
-        X = TimeDistributed(Dense(64, kernel_initializer=y_init))(X)
-        X = TimeDistributed(LeakyReLU(0.4))(X)
-        X = Flatten()(X)   
+        X = TimeDistributed(Dense(4,  kernel_initializer=y_init))(X) 
+        X = TimeDistributed(LeakyReLU(0.3))(X)
+        X = TimeDistributed(Flatten())(X)
+        X = TimeDistributed(Dense(128,  kernel_initializer=y_init))(X) 
+        X = TimeDistributed(LeakyReLU(0.3))(X)
+        X = Dropout(0.2)(X)
+        X = Flatten()(X)
+        X = Dense(512, kernel_initializer=y_init, activation="relu")(X) 
+ 
+ 
                          
         # X = Conv2D(64, 4, strides=(2),padding="valid",activation="elu", kernel_initializer=x_init,   data_format="channels_first")(X)
         # X = Conv2D(128, 4, strides=(2),padding="valid",activation="elu",kernel_initializer=x_init,   data_format="channels_first")(X) 3cnn
@@ -301,15 +306,13 @@ def build_LSTM(self, action_space=6, dueling=True):
         # concatenated = concatenate([X1,X2])
         # # model_final.add(Reshape((4,11,2), input_shape=(88
 
-        X = Dense(self.network_size*2, 
-                  kernel_initializer='he_uniform',activation ="relu")(Xo)
-        X = Dense(self.network_size, 
-                  kernel_initializer='he_uniform',activation ="relu")(X)  
-        X = LSTM(128,recurrent_activation = "softmax",)(X)
-        X = LeakyReLU(0.3)(X)
+        X = Dense(512, 
+                  kernel_initializer='he_uniform')(Xo)
+        X = LeakyReLU(0.7)(X) 
+        X = LSTM(128,recurrent_activation="tanh", activation="relu", kernel_initializer="he_uniform")(X)
         if dueling:
             state_value = Dense( 
-                1,activation="softmax", kernel_initializer='he_uniform' )(X)
+                1, kernel_initializer='he_uniform' ,activation="softmax")(X)
             state_value = Lambda(lambda s: K.expand_dims(
                 s[:, 0], -1), output_shape=(action_space,))(state_value)
 
@@ -323,7 +326,7 @@ def build_LSTM(self, action_space=6, dueling=True):
             X = Dense(action_space, activation="relu",
                       kernel_initializer='he_uniform')(X)
 
-        model = Model(inputs=X_input, outputs=X, name='Base_LSTM_20n')
+        model = Model(inputs=X_input, outputs=X, name='Base_FC-LSTM_128n')
         model.compile(loss=huber_loss, optimizer=Adam(
             lr=self.learning_rate),  metrics=["accuracy"])
 

@@ -32,8 +32,7 @@ from icecream import ic
 from DQN_agent import *
 #Save funcrions 
 
-lastCheckpoint = 0
-
+lastCheckpoint =  400
 
 def saveModel(obj, score="n.a",checkpoint = 1):
         #save model as .h5 with png and loss history.txt        
@@ -42,12 +41,10 @@ def saveModel(obj, score="n.a",checkpoint = 1):
             return
         time_ = datetime.datetime.now
         time_h = time_().strftime("%h")      
-        print("saving " + obj.model.name + "-epochs-<" +
-              str(obj.currEpisode) +">_"+str(int(score)) + "....")
-        name = obj.model.name+ \
-            "_epochs-<{}>_avg<{:0.2f}>.h5".format(obj.currEpisode+lastCheckpoint-1, obj.average[-1])
+        print("saving " + obj.model.name + "_epochs<" + str(obj.currEpisode) +">_"+str(int(score)) + "....")
+        name = obj.model.name+ "_epochs_{}_avg_{:0.2f}_".format(obj.currEpisode+lastCheckpoint-1, obj.average[-1])
         try:
-            obj.model.save(obj.savedir+name, overwrite=True)
+            obj.model.save(obj.savedir+name+".h5", overwrite=True)
             print(name + " saved! ")
         except:
             print(name + " not saved! ")

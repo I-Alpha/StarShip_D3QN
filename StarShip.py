@@ -392,7 +392,7 @@ class StarShipGame:
             key="space"
 
         elif action == 5:
-            self.reward -= .08
+            self.reward -= .1
 
         self.key=key 
         self.action=action

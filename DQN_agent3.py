@@ -53,14 +53,14 @@ class DQN:
         self.state_space = state_space
         self.epsilon = 1
         self.gamma = .999
-        self.batch_size =  4
+        self.batch_size =  64
         self.epsilon_min = .1
-        self.epsilon_decay = 0.9999# 0.999998  (98 *4)
+        self.epsilon_decay = 0.99999# 0.999998  (98 *4)
         # self.burn_limit = .001
         self.learning_rate = 0.0001
         self.replay_freq = 1
-        self.startEpisode =0
-        self.memory = Memory(1000)
+        self.startEpisode =10
+        self.memory = RingBuf(10000)
         self.optimizer_model = 'Adam'
         self.log_data=[]
         self.log_history=[]
@@ -74,34 +74,44 @@ class DQN:
         time_ = datetime.datetime.now
         self.savedir = "savedModels/"+self.model.name+"/"+time_().strftime("%m%d%h")+"/"
 
-    def memorize(self, state, action, reward, next_state, done):
-        # Calculate TD-Error for Prioritized Experience Replay
-            td_error = reward + self.gamma * np.argmax(self.model.predict(next_state)[0]) - np.argmax(
-                self.model.predict(state)[0])
-            # Save TD-Error into Memory
-            self.memory.add(td_error, (state, action, reward, next_state, done))
+    def remember(self, state, action, reward, next_state, done):
+        self.memory.append((state, action, reward, next_state, done))
 
     def act(self, state):
-            if np.random.rand() <= self.epsilon:  # Exploration
-                return random.randrange(self.action_space)
-            act_values = self.model.predict(state)
-            return np.argmax(act_values[0])  # returns action (Exploitation)
+
+        if DQN.currEpisode <  self.startEpisode:
+            return (random.choices(population=range(6),weights=(0.32,0.32,0.05,0.15,0.1,0.05),
+                k=1)).pop()
+
+        if np.random.rand() <= self.epsilon:# or DQN.currEpisode <  self.startEpisode:
+            return random.randrange(self.action_space)
+        act_values = self.model.predict(state)
+        return np.argmax(act_values[0]) 
 
     def replay(self):
-            batch, idxs, is_weight = self.memory.sample(self.batch_size)
-            for i in range(self.batch_size):
-                state, action, reward, next_state, done = batch[i]
-                if not done:
-                    target = (reward + self.gamma * np.amax(self.model.predict(next_state)[0]))
-                else:
-                    target = reward
-                target_f = self.model.predict(state)
-                target_f[0][action] = target
-                # Gradient Update. Pay attention at the sample weight as proposed by the PER Paper
-                history = self.model.fit(state, target_f, epochs=1, verbose=0, sample_weight=np.array([is_weight[i]]))
-                self.log_history.append(history.history["loss"])
-            if self.epsilon > self.epsilon_min: # Epsilon Update
-                self.epsilon *= self.epsilon_decay
+
+        if self.memory.__len__() < self.batch_size or DQN.currEpisode <  self.startEpisode:
+            return
+
+        minibatch = random.sample(
+            self.memory.data[0:self.memory.__len__()], self.batch_size)
+        states = np.array([i[0] for i in minibatch], dtype=float)
+        actions = np.array([i[1] for i in minibatch])
+        rewards = np.array([i[2] for i in minibatch])
+        next_states = np.array([i[3] for i in minibatch], dtype=float)
+        dones = np.array([i[4] for i in minibatch])
+        states = np.squeeze(states)
+        next_states = np.squeeze(next_states)
+        targets = (rewards*1) + self.gamma * \
+            (np.amax(self.model.predict_on_batch(next_states), axis=1))*(1-dones)
+        targets_full = self.model.predict_on_batch(states)
+        ind = np.array([i for i in range(self.batch_size)])
+        targets_full[[ind], [actions]] = targets
+        history = self.model.fit(states, targets_full, verbose=0)
+        self.log_history.append(history.history['loss'])
+        
+        if self.epsilon > self.epsilon_min :#and DQN.currEpisode > self.startEpisode: 
+                self.epsilon = max(self.epsilon_min, self.epsilon_decay * self.epsilon)
 
 
     
@@ -158,12 +168,16 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
             #          pass
 
             next_state = funcs[0]()
-            agent.memorize(state, action, reward, next_state, done)
+            agent.remember(state, action, reward, next_state, done)
             state = next_state
-        
+            for c in range(agent.replay_freq):
+                agent.replay()
+
             # Add values to Tensorboard
+
             average = 0
             if done: 
+
                 epsilon_log.append(agent.epsilon)
                 agent.scores.append(score)
                 agent.episodes.append(e)
@@ -201,9 +215,6 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
                     PlotData(agent.savedir+"Iteration_versus_Epsilon",["Iteration","epsilon" ],[t2],["Epsilon"])      
                     env.save = False
                 break
-        if agent.memory.tree.n_entries > 1000:
-                agent.replay()
-                
         #     else:
         #           training_summary = tf.Summary(value=[
         #             tf.Summary.Value(tag="loss", simple_value=gl_loss),

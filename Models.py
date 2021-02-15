@@ -44,11 +44,14 @@ def huber_loss(y_true, y_predict):
     loss = tf.where(cond, L2, L1)
 
     return K.mean(loss)
+ 
+def gaussian(x):
+    return K.exp(-K.pow(x,2))
 
 def build_1CNNBase(self, action_space=6, dueling=True):
         self.network_size = 256
-        X_input = Input(shape=(self.state_space,))
-        input_reshape=((self.REM_STEP,-1))
+        X_input = Input(shape=(4,-1,))
+        input_reshape=((self.batch_size,self.REM_STEP,-1))
         truncatedn_init = initializers.TruncatedNormal(0, 1e-2)
         
         x_init = "he_uniform"
@@ -60,14 +63,15 @@ def build_1CNNBase(self, action_space=6, dueling=True):
         X = X_input 
         X = Reshape(input_reshape)(X)    
 
-        cnn1 = TimeDistributed(Dense(128, activation="softmax", kernel_initializer='he_uniform',))(X)
+        cnn1 = TimeDistributed(Dense(64, kernel_initializer='he_uniform',))(X)
+        cnn1 = gaussian(cnn1)
         cnn1  = MaxPooling1D(2)(cnn1) 
         cnn1 = Flatten()(cnn1)
 
-        cnn2 = TimeDistributed(Dense(128, activation="tanh", kernel_initializer='he_uniform',))(X) 
-        cnn2  = MaxPooling1D(2)(cnn2) 
-        cnn2 = Flatten()(cnn2)
-
+        cnn2 = TimeDistributed(Dense(64, kernel_initializer='he_uniform',))(X) 
+        cnn2 = LeakyReLU(.8)(cnn2)
+        cnn2 = MaxPooling1D(2)(cnn2) 
+        cnn2 = Flatten()(cnn2) 
         # cnn2 = LocallyConnected1D(filters=64, kernel_initializer='he_uniform', kernel_size=2)(X)
         # cnn2 = LeakyReLU(0.3)(cnn2)
         # cnn2 = LocallyConnected1D(filters=64, kernel_initializer='he_uniform', kernel_size=2)(X)
@@ -80,9 +84,12 @@ def build_1CNNBase(self, action_space=6, dueling=True):
         # cnn3 = Dense(64,activation="relu", kernel_initializer='he_uniform', )(cnn3)
         # cnn3 = Flatten()(cnn3)
         merge = concatenate([cnn1,cnn2])
-        X = Dense(self.network_size*2, 
+
+        X = Dense(self.network_size/2, 
                   kernel_initializer='he_uniform',activation ="relu")(merge) 
-        
+ 
+        X = Dense(self.network_size, 
+                  kernel_initializer='he_uniform',activation ="relu")(X)
         if dueling:
             state_value = Dense(
                 1, kernel_initializer='he_uniform' )(X)
@@ -156,30 +163,34 @@ def build_modelPar1(self, dueling=True):
         model.summary()
         return model
 
-def build_Parrallel_64(self, input_shape=(4 ,112,)):
-
+def build_Parrallel_64(self):
+        self.network_size = 256
+        X_input = Input(shape=(self.state_space,))
+        input_reshape=((self.REM_STEP,-1))
         truncatedn_init = initializers.TruncatedNormal(0, 1e-2)
-        truncatedn_init2 = initializers.TruncatedNormal(0, 2e-2)
+        
         x_init = "he_uniform"
+
         y_init = initializers.glorot_uniform()
         const_init = initializers.constant(1e-2)
-        const_init2 = initializers.constant(2e-2)
-        digit_0 = Input(shape=(4*112,))
-        t = Reshape(input_shape)(digit_0)
 
-        x =TimeDistributed(Dense(128, activation='relu',
-                  kernel_initializer=y_init))(t)
-        x = Flatten()(x)
+    
+        X = X_input  
+        t = Reshape(input_reshape)(X_input)
+ 
+        x = Dense(64,
+                  kernel_initializer=x_init)(x)     
+        x = gaussian(x)
         out_a = (x)
 
-        x = TimeDistributed(Dense(128, activation='relu',
-                  kernel_initializer=x_init))(t)
-        x = Flatten()(x)
+        x = TimeDistributed(Dense(64,
+                  kernel_initializer=x_init))(t)     
+        x = gaussian(x)
+        x = MaxPooling1D(2)(x) 
+        x = Flatten()(x) 
         out_b = (x)
-
-        X = Dense(256, activation="relu", kernel_initializer=x_init)(t)
-        x = Flatten()(x)
-        out_c = (x)
+ 
+     
         
         # x = Conv2D(4,(1,2),strides=(1,1), padding = "valid", activation="softmax", kernel_initializer=x_init , data_format="channels_first")(t)
         # x = MaxPooling2D((4,2))(x)
@@ -193,7 +204,7 @@ def build_Parrallel_64(self, input_shape=(4 ,112,)):
         # #               kernel_initializer='he_uniform')(x)
         # out_c= (x)
 
-        concatenated = concatenate([out_a, out_b,out_c])
+        concatenated = concatenate([out_a, out_b])
         # model_final.add(Reshape((4,11,2), input_shape=(88,)))
         # model_final.add(concatted)
         # model_final.add(Flatten())
@@ -202,13 +213,12 @@ def build_Parrallel_64(self, input_shape=(4 ,112,)):
         # out_d=  Dropout(0.4)(concatenated)
         # out_d=  MaxPooling2D((8,1))(out_d)
 
-        out_d = Flatten()(concatenated)
+        out_d = (concatenated)
 
         out_d = Dense(512, activation='relu',
                       kernel_initializer='he_uniform')(out_d)
-
-        # out_d = Dense(64, activation='relu',
-        #               kernel_initializer='he_uniform')(out_d)
+        out_d = Dense(64, activation='relu',
+                      kernel_initializer='he_uniform')(out_d)
 
         state_value = Dense(1, kernel_initializer='he_uniform')(out_d)
         state_value = Lambda(lambda s: K.expand_dims(
@@ -221,10 +231,9 @@ def build_Parrallel_64(self, input_shape=(4 ,112,)):
 
         out = Add()([state_value, action_advantage])
 
-        model_final = Model([digit_0], out, name='Parallel64_time_distributed12FC_model')
+        model_final = Model([X_input], out, name='Pa12_model')
 
-        model_final.compile(loss=huber_loss, optimizer=Adam(
-            learning_rate=self.learning_rate), metrics=["accuracy"])
+        model_final.compile(loss=huber_loss, optimizer=RMSprop(self.learning_rate, 0.99, 0.0, 1e-6), metrics=["accuracy"])
         #  RMSprop(lr=self.learning_rate, rho=0.95, decay=25e-5, moepsilon=self.epsilon), metrics=["accuracy"])
         print(model_final.summary())
         return model_final
@@ -243,9 +252,8 @@ def sumofsquares(y_true, y_pred):  # critic loss
 
 def FCTime_distributed_model(self, action_space=6, dueling=True):
         self.network_size = 256
-        X_input = Input(shape=(self.REM_STEP*112))
-        input_reshape=(self.REM_STEP,112,1)
-        
+        X_input = Input(shape=(self.REM_STEP*54,))
+        input_reshape=(self.REM_STEP,54)
         X = X_input
         truncatedn_init = initializers.TruncatedNormal(0, 1e-2)
         x_init = "he_uniform"
@@ -255,10 +263,15 @@ def FCTime_distributed_model(self, action_space=6, dueling=True):
         X = Reshape(input_reshape)(X)
         # X =Conv1D(4,(4),(4),activation="relu",) (X)
         # X = Conv2D(1, (1,4), strides=(1,1),padding="same",activation="relu", kernel_initializer=x_init,   data_format="channels_first")(X)      
-        X = TimeDistributed(Dense(128,activation="tanh", kernel_initializer=y_init))(X) 
-        X = TimeDistributed(Dense(64,activation="tanh", kernel_initializer=y_init))(X)
+        x = Dense(64,
+                  kernel_initializer=x_init)(X)     
+        x = gaussian(x)
+        x = Dense(128,
+                  kernel_initializer=x_init)(x)     
+        x = gaussian(x)
         X = Flatten()(X)
         X = Dense(512, kernel_initializer=y_init, activation="relu")(X) 
+        X = Dense(256, kernel_initializer=y_init, activation="relu")(X) 
  
  
                          
@@ -290,7 +303,7 @@ def FCTime_distributed_model(self, action_space=6, dueling=True):
             X = Dense(action_space, activation="relu",
                       kernel_initializer='he_uniform')(X)
 
-        model = Model(inputs=X_input, outputs=X, name='FCTime_distributed_modelv1')
+        model = Model(inputs=X_input, outputs=X, name='FCTime_distributed_modelv2')
         model.compile(loss=huber_loss, optimizer=Adam(
             lr=self.learning_rate),  metrics=["accuracy"])
 

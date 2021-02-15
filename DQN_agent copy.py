@@ -3,6 +3,7 @@ import time
 import datetime
 from tensorflow.keras import initializers
 import keras
+import itertools
 import pylab
 from tensorflow import keras
 from keras.layers import Input, Conv2D, Dense, concatenate
@@ -29,17 +30,16 @@ import chart_studio.plotly as py
 import plotly.express as px
 import plotly.graph_objs as go
 import plotly.figure_factory as FF
+import sys
 from icecream import ic
 from Models import *
 from Utilities import *
-import itertools
 np.random.seed(5)
 env = StarShipGame(True)
 
 
 log_data = []
  
-
 
 class DQN:
 
@@ -54,75 +54,86 @@ class DQN:
         self.state_space = state_space
         self.epsilon = 1
         self.gamma = .9
-        self.batch_size =  32
+        self.tau =0.1
+        self.batch_size =  4
         self.epsilon_min = .1
         self.epsilon_decay = 0.999# 0.999998  (98 *4)
+        self.epsilon_decay_steps = 500000
         self.epsilon_log = []
         # self.burn_limit = .001
         self.learning_rate = 0.00025
-        self.replay_freq = 1
-        self.startEpisode =250
-        self.current_step = 0
-        self.memory = Memory(500000)
+        self.update_step =10000
+        self.replay_init =500
+        self.memory = RingBuf(500000)
         self.optimizer_model = 'Adam'
         self.log_data=[]
         self.log_history=[]
+        self.epsilons = np.linspace(self.epsilon, self.epsilon_min, self.epsilon_decay_steps)# The epsilon decay schedule
+ 
         if model == None:
             self.model = self.build_model()  # dfault _model
-            # self.target_model = self.build_modelGPU()
+            self.target_model = self.build_model()
 
         else:
             self.model = model
+            self.target_model = odel
             # self.target_model =model
         self.modelname = self.model._name
         time_ = datetime.datetime.now
         self.savedir = "savedModels/"+self.model.name+"/"+time_().strftime("%m%d%h")+"/"
     
     def build_model(self):
-              return FCTime_distributed_model((self))
+              return (FCTime_distributed_model(self))
 
-    def memorize(self, state, action, reward, next_state, done):
-        # Calculate TD-Error for Prioritized Experience Replay
-            td_error = reward + self.gamma * np.argmax(self.model.predict(next_state)[0]) - np.argmax(
-                self.model.predict(state)[0])
-            # Save TD-Error into Memory
-            self.memory.add(td_error, (state, action, reward, next_state, done))
-
-    def act(self, state):
-
-            
-            
-            if np.random.rand() <= self.epsilon:  # Exploration
-            #    if DQN.currEpisode <=  self.startEpisode:
-                    return (random.choices(population=range(6),weights=(0.32,0.32,0.05,0.15,0.1,0.05),
-                k=1)).pop()   # weighted exploration 
-                # return random.randrange(self.action_space)
-            
-            act_values = self.model.predict(state)
-            return np.argmax(act_values[0])  # returns action (Exploitation)
-
-    def replay(self):
-            if self.memory.tree.n_entries < self.batch_size:
-                return
-            batch, idxs, is_weight = (self.memory.sample(self.batch_size))
-            for i in range(self.batch_size):
-                state, action, reward, next_state, done = batch[i]
-                if not done:
-                    target = (reward + self.gamma * np.amax(self.model.predict(next_state)[0]))
-                else:
-                    target = reward
-                target_f = self.model.predict(state)
-                target_f[0][action] = target
-                # Gradient Update. Pay attention at the sample weight as proposed by the PER Paper
-               
-                history = self.model.fit(state, target_f, epochs=1, verbose=0, sample_weight=np.array([is_weight[i]]))
-                (self.log_history.append(history.history["loss"]))
-                if self.epsilon > self.epsilon_min: # Epsilon Update
-                        self.epsilon *= self.epsilon_decay    
-                   
-             
+    def remember(self, state, action, reward, next_state, done):
+        self.memory.append((state, action, reward, next_state, done))
 
 
+    def act(self, state):          
+        if self.epsilon > np.random.rand():
+            # explore
+            return np.random.choice(self.action_space)
+        else:
+            # exploit
+            state = self._reshape_state_for_net(state)
+            q_values = self.model.predict(state)[0]
+            return np.argmax(q_values)
+    def replay(self):         
+        
+        minibatch = random.sample(self.memory.data[0:len(self.memory)], self.batch_size)
+        minibatch_new_q_values = []
+        for experience in minibatch:
+            state, action, reward, next_state, done = experience            
+            state = self._reshape_state_for_net(state)
+            experience_new_q_values = self.model.predict(state)[0]
+            if done:
+                q_update = reward
+            else:
+                
+                next_state = self._reshape_state_for_net(next_state)
+                # using online network to SELECT action
+                online_net_selected_action = np.argmax(self.model.predict(next_state))
+                # using target network to EVALUATE action
+                target_net_evaluated_q_value = self.target_model.predict(next_state)[0][online_net_selected_action]
+                q_update = reward + self.gamma * target_net_evaluated_q_value
+            experience_new_q_values[action] = q_update
+            minibatch_new_q_values.append(experience_new_q_values)
+        minibatch_states = np.array([e[0] for e in minibatch])
+        minibatch_new_q_values = np.array(minibatch_new_q_values)
+        self.model.fit(minibatch_states, minibatch_new_q_values, verbose=False, epochs=1)
+    
+    def update_target_model(self):
+        q_network_theta = self.model.get_weights()
+        target_model_theta = self.target_model.get_weights()
+        counter = 0
+        for q_weight, target_weight in zip(q_network_theta,target_model_theta):
+            target_weight = target_weight * (1-self.tau ) + q_weight * self.tau 
+            target_model_theta[counter] = target_weight
+            counter += 1
+        self.target_model.set_weights(target_model_theta)
+
+    def _reshape_state_for_net(self, state):
+        return np.reshape(state,(1, self.state_space))  
 
     
 gl_total_frames = 0
@@ -130,7 +141,7 @@ gl_score = 0
 gl_loss = 0
 
 
-def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
+def train_dqn(episodes,  graphics=True, ch=300,  lchk=0, model=None, ):
 
     def saveResults(agent): 
                 agent.epsilon_log.append(agent.epsilon)
@@ -154,18 +165,20 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
                         t2.append(i)
                 PlotData("Iteration_versus_Epsilon",["Iteration","epsilon" ],[t2],["Epsilon"])      
                 print("episode: {}/{}, score:  {:0.3f}, average: {}, epsilon: {}".format(e,
-                                                                            episode, score,  str(agent.average[-1])[:5],agent.epsilon))
+                                                                            episodes, score,  str(agent.average[-1])[:5],agent.epsilon))
+                sys.stdout.flush()
 
     #loss = []
     action_space = 6
     state_space = env.REM_STEP*54
+
     DQN.REM_STEP = env.REM_STEP 
     max_steps = 98*9
     agent = DQN(action_space, state_space,  model=model)
-    agent.env_name = "StarShip"
-     
+    agent.env_name = "StarShip"     
+    total_t = 0
     
-    for e in range(lchk, episode): 
+    for e in range(lchk, episodes): 
 
         state = (env.reset())
         ## Burnrate function
@@ -173,11 +186,12 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
         #     # after 1000 iterations learning rate will be 0.001
         #     agent.learning_rate += (.0000009)
         DQN.currEpisode = e
-        funcs = [lambda: (np.reshape(state, (1, state_space))),
-                 lambda: (np.reshape(state, (1, len(state))))]
-        state = funcs[0]()
+        
+        #           state = func()
+        #     except:
+        #         pass
         score = 0
-        for i in itertools.count():
+        for i in itertools.count(): 
             if i != 0:
                 if i % 98 == 0:
                     env.time_multipliyer *= 1.5
@@ -186,28 +200,30 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
             action = (agent.act(state))
             reward, next_state, done = env.step(action) 
             score += reward
-            funcs = [lambda: (np.reshape(next_state, (1, state_space))), lambda: (
-                np.reshape(next_state, (1, len(next_state))))]
-            next_state = funcs[0]()
-            (agent.memorize(state, action, reward, next_state, done))
-            state = next_state        
-            average = 0
+          
+            (agent.remember(state, action, reward, next_state, done))      
+            if  (agent.replay_init < len(agent.memory))  :
+                    agent.replay()
+                    agent.epsilon = agent.epsilons[min(total_t,agent.epsilon_decay_steps - 1)]
+                    if(total_t % agent.update_step== 0):
+                        agent.update_target_model()
             #append to lists 
             if done: 
+                state = env.reset()
                 saveResults(agent) 
                 plotResults(agent)               
                 if  env.save:
                     saveModel(agent,score) 
                     env.save = False
+                if DQN.currEpisode % ch == 0:
+                    saveModel(agent,score) 
                 break
+            else:
+                state = next_state     
+        
+            total_t += 1       
+                
             
-        if e > agent.startEpisode  :
-              (agent.replay())
-                   
-        agent.current_step  +=1 
-        if DQN.currEpisode % ch == 0:
-             saveModel(agent,score) 
-
 
      
 

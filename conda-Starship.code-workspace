@@ -7,7 +7,17 @@
 	"settings": {
 		"python.pythonPath": "env-01\\Scripts\\python.exe",
 		"git.ignoreLimitWarning": true,
-		"liveServer.settings.port": 5501
+		"liveServer.settings.port": 5501,
+		"files.exclude": {
+			"**/.git": true,
+			"**/.svn": true,
+			"**/.hg": true,
+			"**/CVS": true,
+			"**/.DS_Store": true,
+			"**/Atari-DQN-master": false,
+			"Atari-DQN-master": false
+		},
+		"explorerExclude.backup": null
 	},
 	"launch": {
 		"version": "0.2.0",

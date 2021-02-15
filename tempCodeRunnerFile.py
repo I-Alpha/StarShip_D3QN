@@ -1,2 +1,2 @@
-self.batch_size =  64
-      
+
+        self.log_history=[]

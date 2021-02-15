@@ -65,7 +65,7 @@ class DQN:
         self.log_data=[]
         self.log_history=[]
         if model == None:
-            self.model =  build_1CNNBase(self)  # dfault _model
+            self.model =  FCTime_distributed_model(self)  # dfault _model
             # self.target_model = self.build_modelGPU()
         else:
             self.model = model
@@ -157,8 +157,7 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
 
            
             action = agent.act(state) 
-            reward, next_state, done = (env.step(action))
-            next_state = env.getEnvStateOnScreen()  # do i need this?
+            reward, next_state, done = (env.step(action)) 
             score += reward
             funcs = [lambda: (np.reshape(next_state, (1, state_space))), lambda: (
                 np.reshape(next_state, (1, len(next_state))))]

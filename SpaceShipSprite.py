@@ -21,7 +21,7 @@ class SpaceShipSprite(DestructableObject):
                self.screen = screen
                self.lives =1 
                self.maxhp=health
-               self.ammoCounter =6500
+               self.ammoCounter =5500
                self.firedAt=0      
                self.maxProjectiles_on_screen =20
                SpaceShipSprite.liveProjectiles =[]

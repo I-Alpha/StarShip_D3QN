@@ -12,6 +12,7 @@ class Obstacle(DestructableObject):
                self.title = self.font.render(self.name,True, self.WHITE) 
                self.count=0
                self.pos=(300,300)
+               self.obs_ID = 0
  
        def dispose(self):
             self.isDisposed = True

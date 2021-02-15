@@ -15,6 +15,7 @@ DQNAgent.py can also be run on its own with its own default values and is equiva
 
 (Will clean up code later)
 
-Papers i've found where useful(more coming):
+Papers/Articles i've found where useful(more coming):
 
 https://nihit.github.io/resources/spaceinvaders.pdf
+https://towardsdatascience.com/activation-functions-neural-networks-1cbd9f8d91d6

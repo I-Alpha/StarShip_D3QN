@@ -9,7 +9,7 @@ from icecream import ic
 parser = argparse.ArgumentParser(
     description='Args for initialising training and testing of RL Agent')
 parser.add_argument('--mode', '-m', default='train')
-parser.add_argument('--model', '--mp', default=None)
+parser.add_argument('--model', '--mp', default=r"savedModels\build_1CNN_Base\0214Feb\build_1CNN_Base_epochs_799_avg_-19.81_.h5")
 parser.add_argument('--epochs', '-e', type=int,default=2000)
 parser.add_argument('--learnrate', '-l', default=.001)
 parser.add_argument('--graphics', '-g', default=False)
@@ -32,11 +32,15 @@ if __name__ == '__main__':
             if args.model != None:
                 try: 
                         model = keras.models.load_model(args.model)
-                        model.summary()
-                        print("\n\n\n  Training beginning....\n\n  Model  {  " + args.model + "  }  has been loaded! \n\n Calling train function.....\n\n")                       
+                        print(model.summary())       
+                        print("\n\n\n  Model - {  " + args.model + "  }  has been loaded! ")                      
+                        ans = input("Are you sure you want to use this model? Y/\/N ? :    ")
+                        if ans.upper() != "Y":
+                            b=print("Please rerun the program and choose a different model. Thanks. ")
+                            exit(code=b)      
+                        print("\nbeginning....Training \n\n ") 
                 except :
-                        print("Error.Check model is not incompatible with current enviroment configuration")
-                        exit()
+                        print("Error. Unable to load model.")                   
                 try:
                     loss = train_dqn( args.epochs,args.graphics, ch=args.checkpoint, lchk=args.last_epoch+1, model=model)
                 except:

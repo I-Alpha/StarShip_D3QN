@@ -9,6 +9,7 @@ import copy
 import pandas as pd
 import cv2    
 import time
+
   
 class StarShipGame:
     WHITE = (255, 255, 255)
@@ -39,14 +40,14 @@ class StarShipGame:
         self.obstacleGenerator.generate(0); 
         StarShipGame.liveObstacles = self.obstacleGenerator.liveObstacles
         self.save=False 
-        self.REM_STEP = 3
+        self.REM_STEP = 4
         self.ROWS =  1
-        self.COLS = 112
+        self.COLS = 54
         self.image_memory = np.zeros((self.REM_STEP, self.ROWS, self.COLS))
         self.state_size = (self.REM_STEP, self.ROWS, self.COLS)
         self.x =0   
         self.time_multipliyer= 1 
-        self.time_time1 = 0
+        self.timer1 = 0
         self.counter = 0
 
     def vectorize_func(self,m):
@@ -96,46 +97,50 @@ class StarShipGame:
         for obs in  self.obstacleGenerator.liveObstacles :
                x,y,x_offset,y_offset, Cx_offset,Cy_offset,w,h= self.Obj_state(obs)
                label = "obs_" + str(count) + "_"
+               obs_collection[label+"ID"]= obs.obs_ID              
                obs_collection[label+"X"]=x              
                obs_collection[label +"Y"]=y
-               obs_collection[label+"width"]=w/2
-               obs_collection[label+"height"]=h/2 
+               obs_collection[label+"CX"]=Cx_offset              
+               obs_collection[label +"CY"]=Cy_offset
+               obs_collection[label+"width"]=w
+               obs_collection[label+"height"]=h
+
                count+=1
        
-        count=0
-        livep ={}
-        for proj in self.obstacleGenerator.liveProjectiles:
-               x,y,x_offset,y_offset, cx_offset,cy_offset,w,h= self.Obj_state(proj)
-               label = "live_projectile_" + str(count) + "_"
-               livep[label+"X"]=x               
-               livep[label +"Y"]=y    
-            #    livep[label+"X_offset"]=x_offset
-            #    livep[label+"Y_offset"]=y_offset
-            #    livep[label+"CX_offset"]=cx_offset
-            #    livep[label+"CY_offset"]=cy_offset
-               livep[label+"width"]=w
-               livep[label+"height"]=h 
-               count+=1
+        # count=0
+        # livep ={}
+        # for proj in self.obstacleGenerator.liveProjectiles:
+        #        x,y,x_offset,y_offset, cx_offset,cy_offset,w,h= self.Obj_state(proj)
+        #        label = "live_projectile_" + str(count) + "_"
+        #        livep[label+"X"]=x               
+        #        livep[label +"Y"]=y    
+        #     #    livep[label+"X_offset"]=x_offset
+        #     #    livep[label+"Y_offset"]=y_offset
+        #     #    livep[label+"CX_offset"]=cx_offset
+        #     #    livep[label+"CY_offset"]=cy_offset
+        #        livep[label+"width"]=w
+        #        livep[label+"height"]=h 
+        #        count+=1
         
         count=0
         state = {                              
                     
-                    "dead_obstacles":1/(self.obstacleGenerator.deadObstacles+1),
-                    "live_projectiles_num" : 1/(len(self.obstacleGenerator.liveProjectiles)+1),
-                    "live_projectiles_last_fired_at": 1/(self.spaceShipSprite.firedAt+1),
-                    "live_projectiles_miss": 1/(self.obstacleGenerator.p_out_of_bounds+1), 
-                    "hits":1/(self.obstacleGenerator.hits+1),   
-                    "fails":1/(self.obstacleGenerator.fails+1),
-                    "counter":  1/(self.counter+1),
-                    #"score":1/(self.score+1),     
+                    "dead_obstacles":(self.obstacleGenerator.deadObstacles),
+                    "live_projectiles_num" : (len(self.obstacleGenerator.liveProjectiles)),
+                    "live_projectiles_last_fired_at": (self.spaceShipSprite.firedAt/1000),
+                    "live_projectiles_miss": (self.obstacleGenerator.p_out_of_bounds), 
+                    "hits":(self.obstacleGenerator.hits),   
+                    "fails":(self.obstacleGenerator.fails),
+                    "counter":  (self.counter),
+                    "score":(self.score),     
                     # "agent_X_offset":agent_X_offset,
                     # "agent_Y_offset":agent_Y_offset,                    
-                    # "agent_CX_offset":agent_CX_offset,
-                    # "agent_CY_offset":agent_CY_offset, 
-                    # "agent_ammo_current":self.spaceShipSprite.currentAmmo,
-                    # "agent_ammo_counter":self.spaceShipSprite.ammoCounter,
-                    # "agent_health" :1/(self.spaceShipSprite.health+1),
-                    # "agent_damage" : self.spaceShipSprite.damage,
+                    "agent_CX_offset":agent_CX_offset,
+                    "agent_CY_offset":agent_CY_offset, 
+                    "agent_ammo_current":self.spaceShipSprite.currentAmmo,
+                    "game_timer":(pygame.time.get_ticks()- self.timer1)/1000,
+                    "agent_health" :(self.spaceShipSprite.health),
+                    "agent_damage" : self.spaceShipSprite.damage,
                     "agent_reward":self.reward,            
                     # "live_obstacles_num":len(self.obstacleGenerator.liveObstacles),
                    "agent_X" : agentX,
@@ -146,23 +151,23 @@ class StarShipGame:
         for m, (k, v) in enumerate(obs_collection.items()):
                 state[k]=v 
 
-        livep_len = len(livep)
-        livep_len = (int)(livep_len/4)
-        if livep_len < self.spaceShipSprite.maxProjectiles_on_screen:        
-            for l in range(livep_len,self.spaceShipSprite.maxProjectiles_on_screen):
-                    label = "live_projectile_placeHolder_" + str(l) + "_"
-                    livep[label+"X"]=-1              
-                    livep[label +"Y"]=-1    
-                    # livep[label+"X_offset"]=0
-                    # livep[label+"Y_offset"]=0
-                    # livep[label+"CX_offset"]=0
-                    # livep[label+"CY_offset"]=0
-                    livep[label+"width"]=-1
-                    livep[label+"height"]=-1 
+        # livep_len = len(livep)
+        # livep_len = (int)(livep_len/4)
+        # if livep_len < self.spaceShipSprite.maxProjectiles_on_screen:        
+        #     for l in range(livep_len,self.spaceShipSprite.maxProjectiles_on_screen):
+        #             label = "live_projectile_placeHolder_" + str(l) + "_"
+        #             livep[label+"X"]=0              
+        #             livep[label +"Y"]=0
+        #             # livep[label+"X_offset"]=0
+        #             # livep[label+"Y_offset"]=0
+        #             # livep[label+"CX_offset"]=0
+        #             # livep[label+"CY_offset"]=0
+        #             livep[label+"width"]=0
+        #             livep[label+"height"]=0
 
 
-        for t, (k, v) in enumerate(livep.items()):
-                state[k]=v 
+        # for t, (k, v) in enumerate(livep.items()):
+        #         state[k]=v 
         state =[ *state.values()]
 
         self.image_memory = np.roll(self.image_memory, 1, axis = 0)
@@ -262,9 +267,6 @@ class StarShipGame:
         aCenterY =(obs.offset[1]) + (obs.image_size[1]/2)
         offsetX = aCenterX*(1/self.screen_size[0])
         offsetY =aCenterY*(1/self.screen_size[1])  
-
-
-
         return offsetX, offsetY
    
 
@@ -326,7 +328,8 @@ class StarShipGame:
     def reset(self):   
         pygame.init()     
         self.spaceShipSprite = SpaceShipSprite(StarShipGame.screen,r'Assets\imgs\triangleShip.png',startPosition=(self.screen_size[0]/2,self.screen_size[1]/2))   
-        SpaceShipSprite.liveProjectiles=[]  
+        SpaceShipSprite.liveProjectiles=[]
+        ObstacleGenerator.obs_ID=0  
         self.obstacleGenerator = ObstacleGenerator(StarShipGame.screen,r'Assets\imgs\brick.png')
         StarShipGame.liveObstacles = []
         StarShipGame.deadObstacles = 0
@@ -347,8 +350,7 @@ class StarShipGame:
         self.time_multipliyer =1
         StarShipGame.fails =0
         self.done=False  
-        self.time_time1 = time.time()
-        self.time_time2 = time.time()
+        self.timer1 = pygame.time.get_ticks()
         self.clock = pygame.time.Clock()     
         self.obstacleGenerator.generate(0);
         StarShipGame.liveObstacles =  self.obstacleGenerator.liveObstacles  

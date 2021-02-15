@@ -32,7 +32,7 @@ import plotly.graph_objs as go
 import plotly.figure_factory as FF
 from icecream import ic
 
-HUBER_LOSS_DELTA = 1.0
+HUBER_LOSS_DELTA = 1.35
 
 
 def huber_loss(y_true, y_predict):
@@ -45,56 +45,104 @@ def huber_loss(y_true, y_predict):
 
     return K.mean(loss)
 
-def build_modelPar(self, dueling=True, input_shape=(4, 1, 138)):
+def build_1CNNBase(self, action_space=6, dueling=True):
+        self.network_size = 256
+        X_input = Input(shape=(self.state_space,))
+        input_reshape=((self.REM_STEP,-1))
+        truncatedn_init = initializers.TruncatedNormal(0, 1e-2)
+        
+        x_init = "he_uniform"
+
+        y_init = initializers.glorot_uniform()
+        const_init = initializers.constant(1e-2)
+
+    
+        X = X_input 
+        X = Reshape(input_reshape)(X)    
+
+        cnn1 = TimeDistributed(Dense(128, activation="softmax", kernel_initializer='he_uniform',))(X) 
+        cnn1 = Flatten()(cnn1)
+
+        cnn2 = TimeDistributed(Dense(128, activation="tanh", kernel_initializer='he_uniform',))(X) 
+        cnn2 = Flatten()(cnn2)
+
+        # cnn2 = LocallyConnected1D(filters=64, kernel_initializer='he_uniform', kernel_size=2)(X)
+        # cnn2 = LeakyReLU(0.3)(cnn2)
+        # cnn2 = LocallyConnected1D(filters=64, kernel_initializer='he_uniform', kernel_size=2)(X)
+        # cnn2 = Dense(128,activation="relu", kernel_initializer='he_uniform', )(cnn2)
+        # cnn2 = Flatten()(cnn2)
+
+        # cnn3 = Conv1D(filters=64, kernel_initializer='he_uniform', kernel_size=2)(X)
+        # cnn3 = LeakyReLU(0.3)(cnn3)
+        # cnn3 = MaxPooling1D(2)(cnn3)
+        # cnn3 = Dense(64,activation="relu", kernel_initializer='he_uniform', )(cnn3)
+        # cnn3 = Flatten()(cnn3)
+        merge = concatenate([cnn1,cnn2])
+        merge  = MaxPooling1D(2)(merge)
+        X = Dense(self.network_size*2, 
+                  kernel_initializer='he_uniform',activation ="relu")(merge) 
+        
+        if dueling:
+            state_value = Dense(
+                1, kernel_initializer='he_uniform' )(X)
+            state_value = Lambda(lambda s: K.expand_dims(
+                s[:, 0], -1), output_shape=(action_space,))(state_value)
+
+            action_advantage = Dense(
+                action_space, kernel_initializer='he_uniform') (X)
+            action_advantage = Lambda(lambda a: a[:, :] - K.mean(
+                a[:, :], keepdims=True), output_shape=(action_space,))(action_advantage)
+
+            X = Add()([state_value, action_advantage])
+        else:
+            # Output Layer with # of actions: 2 nodes (left, right)
+            X = Dense(action_space, activation="relu",
+                      kernel_initializer='he_uniform')(X)
+
+        model = Model(inputs=X_input, outputs=X, name='build_TMaxpoolin_1')
+        model.compile(loss=huber_loss, optimizer=Adam(
+            lr=self.learning_rate),  metrics=["accuracy"])
+
+        # model.compile(loss="mean_squared_error", optimizer=Adam(lr=0.00025,epsilon=0.01), metrics=["accuracy"])
+        model.summary()
+        return model
+
+def build_modelPar1(self, dueling=True):
+        X_input = Input(shape=(self.REM_STEP*112))
+        input_reshape=((self.REM_STEP,112))
         truncatedn_init = initializers.TruncatedNormal(0, 1e-2)
         x_init = "he_uniform"
         y_init = initializers.glorot_uniform()
         const_init = initializers.constant(1e-2)
-        if dueling:
-            x = Input(shape=(self.state_space,))
-            t = Reshape(input_shape)(x)
+  
+        x = Input(shape=(self.state_space,))
+        t = Reshape(input_reshape)(x)
             # a series of fully connected layer for estimating V(s)
-            y11 = Dense(128, activation='relu', kernel_initializer=truncatedn_init,
-                        bias_initializer=const_init, use_bias=True)(t)
-            y12 = Dense(128, activation='relu', kernel_initializer=truncatedn_init,
-                        bias_initializer=const_init, use_bias=True)(y11)
-            y13 = Flatten()(y12)
-            y14 = Dense(self.action_space, activation="linear",
-                        kernel_initializer=x_init)(y13)
-
+        y11 = Dense(256, activation='tanh', kernel_initializer=x_init)(x)
+        y12 = (y11) 
             # a series of fully connected layer for estimating A(s,a)
+  
+        y21 = TimeDistributed(Dense(64, activation="tanh",kernel_initializer=x_init))(t)
+        y22= Flatten()(y21)
 
-            y20 = Flatten()(x)
-            y21 = Dense(256, activation='relu', kernel_initializer=truncatedn_init,
-                        bias_initializer=const_init, use_bias=True)(y20)
-            y22 = Dense(128, activation='relu', kernel_initializer=truncatedn_init,
-                        bias_initializer=const_init, use_bias=True)(y21)
-            y23 = Dense(1, activation="linear", kernel_initializer=x_init)(y22)
 
-            # a series of fully connected layer for estimating B(s,a)
+        #combine V(s) and A(s,a) to get Q(s,a)
+        conc = Add()([y12, y22])
+        w = Dense(512, activation="relu",kernel_initializer=x_init)(conc)
+        w = Dense(256, activation="relu",kernel_initializer=x_init)(w)         
 
-            y30 = TimeDistributed(Dense(64, activation='relu'))(t)
-            y31 = TimeDistributed(Dense(64, activation='relu'))(y30)
-            y32 = Dense(1, activation='softmax')(y31)
-            y33 = Flatten()(y32)
-            y34 = Dense(256, activation='relu')(y33)
-            y35 = Dense(64, activation='relu')(y34)
-            y36 = Dense(self.action_space, activation='linear')(y35)
+        state_value = Dense(1, kernel_initializer='he_uniform', activation="softmax")(w)
+        state_value = Lambda(lambda s: K.expand_dims(
+        s[:, 0], -1), output_shape=(self.action_space,))(state_value)
 
-            w = Concatenate(axis=-1)([y23, y14])
+        action_advantage = Dense(
+        self.action_space, activation='linear', kernel_initializer='he_uniform')(w)
+        action_advantage = Lambda(lambda a: a[:, :] - K.mean(
+        a[:, :], keepdims=True), output_shape=(self.action_space,))(action_advantage)
 
-            # combine V(s) and A(s,a) to get Q(s,a)
-            z = Lambda(lambda a: K.expand_dims(a[:, 0], axis=-1) + a[:, 1:] - K.mean(a[:, 1:], keepdims=True),
-                       output_shape=(self.action_space))(w)
-        else:
-            x = Input(shape=(self.state_space,))
-
-            # a series of fully connected layer for estimating Q(s,a)
-            y1 = Dense(64, activation='relu')(x)
-            y2 = Dense(64, activation='relu')(y1)
-            z = Dense(self.action_space, activation="linear")(y2)
-
-        model = Model(inputs=x, outputs=z)
+        out = Add()([state_value, action_advantage])
+  
+        model = Model([x], out, name='Parallel128-FC-model')
 
         if self.optimizer_model == 'Adam':
             optimizer = Adam(lr=self.learning_rate, clipnorm=1.)
@@ -206,12 +254,8 @@ def FCTime_distributed_model(self, action_space=6, dueling=True):
         X = Reshape(input_reshape)(X)
         # X =Conv1D(4,(4),(4),activation="relu",) (X)
         # X = Conv2D(1, (1,4), strides=(1,1),padding="same",activation="relu", kernel_initializer=x_init,   data_format="channels_first")(X)      
-        X = TimeDistributed(Dense(4,  kernel_initializer=y_init))(X) 
-        X = TimeDistributed(LeakyReLU(0.3))(X)
-        X = TimeDistributed(Flatten())(X)
-        X = TimeDistributed(Dense(128,  kernel_initializer=y_init))(X) 
-        X = TimeDistributed(LeakyReLU(0.3))(X)
-        X = Dropout(0.2)(X)
+        X = TimeDistributed(Dense(128,activation="tanh", kernel_initializer=y_init))(X) 
+        X = TimeDistributed(Dense(64,activation="tanh", kernel_initializer=y_init))(X)
         X = Flatten()(X)
         X = Dense(512, kernel_initializer=y_init, activation="relu")(X) 
  

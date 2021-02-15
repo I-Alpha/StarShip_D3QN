@@ -55,17 +55,17 @@ class DQN:
         self.gamma = .999
         self.batch_size =  64
         self.epsilon_min = .1
-        self.epsilon_decay = 0.99999# 0.999998  (98 *4)
+        self.epsilon_decay = 0.999# 0.999998  (98 *4)
         # self.burn_limit = .001
         self.learning_rate = 0.0001
         self.replay_freq = 1
-        self.startEpisode =10
-        self.memory = RingBuf(10000)
+        self.startEpisode =1
+        self.memory = RingBuf(1000000)
         self.optimizer_model = 'Adam'
         self.log_data=[]
         self.log_history=[]
         if model == None:
-            self.model =  FCTime_distributed_model(self)  # dfault _model
+            self.model =  build_1CNNBase(self)  # dfault _model
             # self.target_model = self.build_modelGPU()
         else:
             self.model = model
@@ -81,11 +81,12 @@ class DQN:
 
         if DQN.currEpisode <  self.startEpisode:
             return (random.choices(population=range(6),weights=(0.32,0.32,0.05,0.15,0.1,0.05),
-                k=1)).pop()
+                k=1))[0]
 
         if np.random.rand() <= self.epsilon:# or DQN.currEpisode <  self.startEpisode:
             return random.randrange(self.action_space)
         act_values = self.model.predict(state)
+        print(state[-1:10],act_values[-1:10]) 
         return np.argmax(act_values[0]) 
 
     def replay(self):
@@ -156,7 +157,7 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
 
            
             action = agent.act(state) 
-            reward, next_state, done = env.step(action)
+            reward, next_state, done = (env.step(action))
             next_state = env.getEnvStateOnScreen()  # do i need this?
             score += reward
             funcs = [lambda: (np.reshape(next_state, (1, state_space))), lambda: (

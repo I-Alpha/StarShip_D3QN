@@ -32,7 +32,7 @@ import plotly.figure_factory as FF
 from icecream import ic
 from Models import *
 from Utilities import *
-np.random.seed(0)
+np.random.seed(5)
 env = StarShipGame(True)
 
 
@@ -52,27 +52,31 @@ class DQN:
         self.action_space = action_space
         self.state_space = state_space
         self.epsilon = 1
-        self.gamma = .999
-        self.batch_size =  4
+        self.gamma = .9
+        self.batch_size =  89
         self.epsilon_min = .1
-        self.epsilon_decay = 0.9999# 0.999998  (98 *4)
+        self.epsilon_decay = 0.999# 0.999998  (98 *4)
         # self.burn_limit = .001
-        self.learning_rate = 0.0001
+        self.learning_rate = 0.00025
         self.replay_freq = 1
-        self.startEpisode =0
-        self.memory = Memory(1000)
+        self.startEpisode =10
+        self.memory = Memory(1000,000)
         self.optimizer_model = 'Adam'
         self.log_data=[]
         self.log_history=[]
         if model == None:
-            self.model =  FCTime_distributed_model(self)  # dfault _model
+            self.model = self.build_model()  # dfault _model
             # self.target_model = self.build_modelGPU()
+
         else:
             self.model = model
             # self.target_model =model
         self.modelname = self.model._name
         time_ = datetime.datetime.now
         self.savedir = "savedModels/"+self.model.name+"/"+time_().strftime("%m%d%h")+"/"
+    
+    def build_model(self):
+              return (build_1CNNBase(self))
 
     def memorize(self, state, action, reward, next_state, done):
         # Calculate TD-Error for Prioritized Experience Replay
@@ -82,13 +86,20 @@ class DQN:
             self.memory.add(td_error, (state, action, reward, next_state, done))
 
     def act(self, state):
+
+            
+            
             if np.random.rand() <= self.epsilon:  # Exploration
-                return random.randrange(self.action_space)
+            #    if DQN.currEpisode <=  self.startEpisode:
+                    return (random.choices(population=range(6),weights=(0.32,0.32,0.05,0.15,0.1,0.05),
+                k=1)).pop()   # weighted exploration 
+                # return random.randrange(self.action_space)
+            
             act_values = self.model.predict(state)
             return np.argmax(act_values[0])  # returns action (Exploitation)
 
     def replay(self):
-            batch, idxs, is_weight = self.memory.sample(self.batch_size)
+            batch, idxs, is_weight = (self.memory.sample(self.batch_size))
             for i in range(self.batch_size):
                 state, action, reward, next_state, done = batch[i]
                 if not done:
@@ -99,9 +110,10 @@ class DQN:
                 target_f[0][action] = target
                 # Gradient Update. Pay attention at the sample weight as proposed by the PER Paper
                 history = self.model.fit(state, target_f, epochs=1, verbose=0, sample_weight=np.array([is_weight[i]]))
-                self.log_history.append(history.history["loss"])
+                (self.log_history.append(history.history["loss"]))
             if self.epsilon > self.epsilon_min: # Epsilon Update
                 self.epsilon *= self.epsilon_decay
+
 
 
     
@@ -113,8 +125,8 @@ gl_loss = 0
 def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
     #loss = []
     action_space = 6
-    state_space = env.REM_STEP*112
-    DQN.REM_STEP = env.REM_STEP
+    state_space = env.REM_STEP*54
+    DQN.REM_STEP = env.REM_STEP 
     max_steps = 98*9
     agent = DQN(action_space, state_space,  model=model)
     agent.env_name = "StarShip"
@@ -122,12 +134,12 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
     
     for e in range(lchk, episode): 
       
-        state = env.reset()
+        state = (env.reset())
         ## Burnrate function
         # if agent.learning_rate < agent.burn_limit and DQN.currEpisode > 0:
         #     # after 1000 iterations learning rate will be 0.001
         #     agent.learning_rate += (.0000009)
-        DQN.currEpisode =e
+        DQN.currEpisode = e
         funcs = [lambda: (np.reshape(state, (1, state_space))),
                  lambda: (np.reshape(state, (1, len(state))))]
         # for func in funcs:
@@ -145,7 +157,7 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
                 
 
            
-            action = agent.act(state) 
+            action = (agent.act(state))
             reward, next_state, done = env.step(action)
             next_state = env.getEnvStateOnScreen()  # do i need this?
             score += reward
@@ -158,7 +170,7 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
             #          pass
 
             next_state = funcs[0]()
-            agent.memorize(state, action, reward, next_state, done)
+            (agent.memorize(state, action, reward, next_state, done))
             state = next_state
         
             # Add values to Tensorboard
@@ -196,13 +208,10 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
                 #     ]) 
                 if  env.save:
                     saveModel(agent,score) 
-                    PlotData(agent.savedir+ "Episode_versus_score",["Episode","score" ],[agent.log_data,agent.average],["score","average"] )                      
-                    PlotData(agent.savedir+"Iteration_versus_loss",["Iteration","loss" ],[agent.log_history,x1],["loss","average"])
-                    PlotData(agent.savedir+"Iteration_versus_Epsilon",["Iteration","epsilon" ],[t2],["Epsilon"])      
                     env.save = False
                 break
-        if agent.memory.tree.n_entries > 1000:
-                agent.replay()
+        if e > agent.startEpisode:# agent.memory.tree.n_entries > 1000:
+                (agent.replay())
                 
         #     else:
         #           training_summary = tf.Summary(value=[

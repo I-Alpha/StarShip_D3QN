@@ -15,17 +15,19 @@ class ObstacleGenerator():
     r_num = 0
     prevnum = 0
     prevPos = 0
+    obs_ID=0
     p_out_of_bounds=False
     def __init__(self,screen, image = r'Assets\imgs\brick.png'):     
        ObstacleGenerator.screen = screen
        ObstacleGenerator.bounds = screen.get_size()
        ObstacleGenerator.image = image 
        ObstacleGenerator.prevT = pygame.time.get_ticks()
-       ObstacleGenerator.nextId=0         
+        
        self.levelHeight = 70 
        self.obsimg = Obstacle(screen,image).image_size
        self.initilaizeRandom()
        self.reset()
+ 
       
     def drawAll(self): 
            for i in ObstacleGenerator.liveObstacles: 
@@ -97,8 +99,10 @@ class ObstacleGenerator():
             if num <5 : 
                 ObstacleGenerator.listPos = random.sample(ObstacleGenerator.listPos,num)           
             tempList = []
-            for i in ObstacleGenerator.listPos:  
+            for v,i in enumerate(ObstacleGenerator.listPos):  
                 self.temp = Obstacle(ObstacleGenerator.screen, ObstacleGenerator.image, name ="G-O-",movespeed=4)
+                self.temp.obs_ID = ObstacleGenerator.obs_ID
+                ObstacleGenerator.obs_ID+=1 
                 self.temp.currentPos = (float(i),0.0)             
                 tempList.append(self.temp)
             return tempList
@@ -137,9 +141,7 @@ class ObstacleGenerator():
         ObstacleGenerator.deadObstacles = 0
         ObstacleGenerator.hits = 0; 
         ObstacleGenerator.prevT = pygame.time.get_ticks()
-        ObstacleGenerator.nextId=0 ;
         ObstacleGenerator.fails=0;
         Obstacle.fails =0
         ObstacleGenerator.p_out_of_bounds=0
-        Projectile.reset() 
-        
+        Projectile.reset()  

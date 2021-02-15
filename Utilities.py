@@ -32,7 +32,7 @@ from icecream import ic
 from DQN_agent import *
 #Save funcrions 
 
-lastCheckpoint =  400
+lastCheckpoint =  700
 
 def saveModel(obj, score="n.a",checkpoint = 1):
         #save model as .h5 with png and loss history.txt        
@@ -48,7 +48,11 @@ def saveModel(obj, score="n.a",checkpoint = 1):
             print(name + " saved! ")
         except:
             print(name + " not saved! ")
-            return
+        finally:
+           PlotData(obj.savedir+ "Episode_versus_score",["Episode","score" ],[obj.log_data,obj.average],["score","average"] )                      
+           PlotData(obj.savedir+"Iteration_versus_loss",["Iteration","loss" ],[obj.log_history,x1],["loss","average"])
+           PlotData(obj.savedir+"Iteration_versus_Epsilon",["Iteration","epsilon" ],[t2],["Epsilon"])      
+        return
       
         saveLog(obj, name+".txt", obj.savedir,autosavep=False)
      
@@ -88,6 +92,7 @@ def PlotData(title,axeslabels=["Epsiodes","Loss"],values=[],labels=[]):
         plt.tight_layout()
         plt.savefig(title+".png")
         plt.clf()
+
  
 def mkdir_p(mypath):
     '''Creates a directory. equivalent to using mkdir -p on the command line'''

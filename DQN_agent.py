@@ -53,14 +53,15 @@ class DQN:
         self.state_space = state_space
         self.epsilon = 1
         self.gamma = .9
-        self.batch_size =  89
+        self.batch_size =  64
         self.epsilon_min = .1
         self.epsilon_decay = 0.999# 0.999998  (98 *4)
+        self.epsilon_log = []
         # self.burn_limit = .001
         self.learning_rate = 0.00025
         self.replay_freq = 1
         self.startEpisode =10
-        self.memory = Memory(1000,000)
+        self.memory = Memory(1000000)
         self.optimizer_model = 'Adam'
         self.log_data=[]
         self.log_history=[]
@@ -112,7 +113,8 @@ class DQN:
                 history = self.model.fit(state, target_f, epochs=1, verbose=0, sample_weight=np.array([is_weight[i]]))
                 (self.log_history.append(history.history["loss"]))
             if self.epsilon > self.epsilon_min: # Epsilon Update
-                self.epsilon *= self.epsilon_decay
+                self.epsilon *= self.epsilon_decay            
+             
 
 
 
@@ -123,6 +125,31 @@ gl_loss = 0
 
 
 def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
+
+    def saveResults(agent): 
+                agent.epsilon_log.append(agent.epsilon)
+                agent.scores.append(score)
+                agent.episodes.append(e)
+                agent.average.append(sum(agent.scores) / len(agent.scores))
+                agent.log_data.append(score)
+
+    def plotResults(agent):
+                t1 =[ ]
+                x1= []
+                for i in agent.log_history:
+                        i = i[0]
+                        t1.append(i*-1)
+                        x1.append(sum(t1)/len(agent.log_history))
+                PlotData("Episode_versus_score",["Episode","score" ],[agent.log_data,agent.average],["score","average"] )                      
+                PlotData("Iteration_versus_loss",["Iteration","loss" ],[t1,x1],["loss","average"])
+                t2 =[]
+                x2= []
+                for i in agent.epsilon_log:
+                        t2.append(i)
+                PlotData("Iteration_versus_Epsilon",["Iteration","epsilon" ],[t2],["Epsilon"])      
+                print("episode: {}/{}, score:  {:0.3f}, average: {}, epsilon: {}".format(e,
+                                                                            episode, score,  str(agent.average[-1])[:5],agent.epsilon))
+
     #loss = []
     action_space = 6
     state_space = env.REM_STEP*54
@@ -130,10 +157,10 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
     max_steps = 98*9
     agent = DQN(action_space, state_space,  model=model)
     agent.env_name = "StarShip"
-    epsilon_log =[]
+     
     
     for e in range(lchk, episode): 
-      
+
         state = (env.reset())
         ## Burnrate function
         # if agent.learning_rate < agent.burn_limit and DQN.currEpisode > 0:
@@ -153,13 +180,11 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
             if i != 0:
                 if i % 98 == 0:
                     env.time_multipliyer *= 1.5
-                env.time_multipliyer += 0.01
-                
-
+                env.time_multipliyer += 0.01              
            
             action = (agent.act(state))
             reward, next_state, done = env.step(action)
-            next_state = env.getEnvStateOnScreen()  # do i need this?
+            next_state = env.getEnvStateOnScreen() 
             score += reward
             funcs = [lambda: (np.reshape(next_state, (1, state_space))), lambda: (
                 np.reshape(next_state, (1, len(next_state))))]
@@ -173,59 +198,24 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
             (agent.memorize(state, action, reward, next_state, done))
             state = next_state
         
-            # Add values to Tensorboard
             average = 0
+            #append to lists 
             if done: 
-                epsilon_log.append(agent.epsilon)
-                agent.scores.append(score)
-                agent.episodes.append(e)
-                agent.average.append(sum(agent.scores) / len(agent.scores))
-                agent.log_data.append(score)
-                t1 =[ ]
-                x1= []
-                for i in agent.log_history:
-                     i = i[0]
-                     t1.append(i*-1)
-                     x1.append(sum(t1)/len(agent.log_history))
-                PlotData("Episode_versus_score",["Episode","score" ],[agent.log_data,agent.average],["score","average"] )                      
-                PlotData("Iteration_versus_loss",["Iteration","loss" ],[t1,x1],["loss","average"])
-                t2 =[]
-                x2= []
-                for i in epsilon_log:
-                     t2.append(i)
-                PlotData("Iteration_versus_Epsilon",["Iteration","epsilon" ],[t2],["Epsilon"])      
-                print("episode: {}/{}, score:  {:0.3f}, average: {}, epsilon: {}".format(e,
-                                                                            episode, score,  str(agent.average[-1])[:5],agent.epsilon))
-
-                # print("Max: ",i," Ep: ",e)
-                # # print("episode: {}/{}, score: {}, lr : {}".format(e,global file_writer   t
-                # training_summary = tf.Summary(value=[
-                #     tf.Summary.Value(tag="loss", simple_value=gl_loss),
-                #     tf.Summary.Value(tag="average", simple_value=float(average)),
-                #     tf.Summary.Value(tag="score", simple_value=score),
-                #     tf.Summary.Value(tag="max-step", simple_value=i),
-                #     tf.Summary.Value(tag="dead obstacles", simple_value=env.obstacleGenerator.deadObstacles)
-                #     ]) 
+                saveResults(agent) 
+                plotResults(agent)               
                 if  env.save:
                     saveModel(agent,score) 
                     env.save = False
                 break
         if e > agent.startEpisode:# agent.memory.tree.n_entries > 1000:
                 (agent.replay())
-                
-        #     else:
-        #           training_summary = tf.Summary(value=[
-        #             tf.Summary.Value(tag="loss", simple_value=gl_loss),
-        #             tf.Summary.Value(tag="score", simple_value=gl_score),
-        #             tf.Summary.Value(tag="max-step", simple_value=i),
-        #             tf.Summary.Value(tag="dead obstacles", simple_value=env.obstacleGenerator.deadObstacles),
-        #     ])
-        # # file_writer.add_summary(training_summary, global_step=e)
-        # global g
-        # if done :
-        #     file_writer.flush()
+            
         if DQN.currEpisode % ch == 0:
              saveModel(agent,score) 
+
+
+     
+
 
     def test(self):
         for e in range(self.EPISODES):

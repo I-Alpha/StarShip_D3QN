@@ -408,8 +408,9 @@ class StarShipGame:
             x=5-n
             self.obstacleGenerator.generate(delay=0,num=x)
         if self.done:        
-            state = self.getEnvStateOnScreen()
-            return self.reward, state.flatten(),self.done
+            state = self.getEnvStateOnScreen() 
+         
+            return self.reward, state.flatten(),self.done       
         StarShipGame.liveObstacles =self.obstacleGenerator.liveObstacles    
         state = self.getEnvStateOnScreen()
         # if  np.any(state[:,0] == 1):

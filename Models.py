@@ -60,10 +60,12 @@ def build_1CNNBase(self, action_space=6, dueling=True):
         X = X_input 
         X = Reshape(input_reshape)(X)    
 
-        cnn1 = TimeDistributed(Dense(128, activation="softmax", kernel_initializer='he_uniform',))(X) 
+        cnn1 = TimeDistributed(Dense(128, activation="softmax", kernel_initializer='he_uniform',))(X)
+        cnn1  = MaxPooling1D(2)(cnn1) 
         cnn1 = Flatten()(cnn1)
 
         cnn2 = TimeDistributed(Dense(128, activation="tanh", kernel_initializer='he_uniform',))(X) 
+        cnn2  = MaxPooling1D(2)(cnn2) 
         cnn2 = Flatten()(cnn2)
 
         # cnn2 = LocallyConnected1D(filters=64, kernel_initializer='he_uniform', kernel_size=2)(X)
@@ -78,7 +80,6 @@ def build_1CNNBase(self, action_space=6, dueling=True):
         # cnn3 = Dense(64,activation="relu", kernel_initializer='he_uniform', )(cnn3)
         # cnn3 = Flatten()(cnn3)
         merge = concatenate([cnn1,cnn2])
-        merge  = MaxPooling1D(2)(merge)
         X = Dense(self.network_size*2, 
                   kernel_initializer='he_uniform',activation ="relu")(merge) 
         

@@ -32,9 +32,10 @@ from icecream import ic
 from DQN_agent import *
 #Save funcrions 
 
-lastCheckpoint =  700
+lastCheckpoint =  400
 
 def saveModel(obj, score="n.a",checkpoint = 1):
+    
         #save model as .h5 with png and loss history.txt        
         mkdir_p(obj.savedir)
         if obj.currEpisode < 5:
@@ -48,16 +49,12 @@ def saveModel(obj, score="n.a",checkpoint = 1):
             print(name + " saved! ")
         except:
             print(name + " not saved! ")
-        finally:
-           PlotData(obj.savedir+ "Episode_versus_score",["Episode","score" ],[obj.log_data,obj.average],["score","average"] )                      
-           PlotData(obj.savedir+"Iteration_versus_loss",["Iteration","loss" ],[obj.log_history,x1],["loss","average"])
-           PlotData(obj.savedir+"Iteration_versus_Epsilon",["Iteration","epsilon" ],[t2],["Epsilon"])      
-        return
+            return      
       
-        saveLog(obj, name+".txt", obj.savedir,autosavep=False)
-     
+        saveLog(obj, name+".txt", obj.savedir,autosavep=True)
+       
    
-def saveLog(obj, name="lastRun.txt",  dir="", autosavep =True):
+def saveLog(obj, name="lastRun.txt",  dir="", autosavep =False):
     # Auto save for saving loss plot with txt
         mkdir_p(dir)
         if obj.currEpisode < 5:
@@ -71,16 +68,26 @@ def saveLog(obj, name="lastRun.txt",  dir="", autosavep =True):
             print("Unable to write log.txt")
             return
         if autosavep:
-            try:
-                pylab.savefig(dir+name+".png")
-            except OSError:
-                print("In-functio save failed for " + name + ".png. Continuing...")
-                pass
-
+            t1 =[ ]
+            x1= []
+            for i in obj.log_history:
+                    i = i[0]
+                    t1.append(i*-1)
+                    x1.append(sum(t1)/len(obj.log_history))
+            PlotData("Episode_versus_score",["Episode","score" ],[obj.log_data,obj.average],["score","average"] , obj.savedir)                      
+            PlotData("Iteration_versus_loss",["Iteration","loss" ],[t1,x1],["loss","average"],obj.savedir)
+            t2 =[]
+            x2= []
+            for i in obj.epsilon_log:
+                    t2.append(i)
+            PlotData("Iteration_versus_Epsilon",["Iteration","epsilon" ],[t2],["Epsilon"],obj.savedir)       
+         
+   
 #plot functions
 figures = {}
 plt.grid()
-def PlotData(title,axeslabels=["Epsiodes","Loss"],values=[],labels=[]):         
+
+def PlotData(title,axeslabels=["Epsiodes","Loss"],values=[],labels=[],saveDir = ""):         
     #First value is x- value
         epochs = range(1, len(values[0])+1)
         for v,i in enumerate(values):
@@ -90,9 +97,10 @@ def PlotData(title,axeslabels=["Epsiodes","Loss"],values=[],labels=[]):
         plt.ylabel(axeslabels[1])
         plt.legend()       
         plt.tight_layout()
-        plt.savefig(title+".png")
+        plt.savefig(saveDir+title+".png")
         plt.clf()
 
+        
  
 def mkdir_p(mypath):
     '''Creates a directory. equivalent to using mkdir -p on the command line'''

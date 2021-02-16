@@ -195,7 +195,7 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
                 x2= []
                 for i in epsilon_log:
                      t2.append(i)
-                PlotData("Iteration_versus_Epsilon",["Iteration","epsilon" ],[t2],["Epsilon"])      
+                PlotData("episode_versus_Epsilon",["episode","epsilon" ],[t2],["Epsilon"])      
                 print("episode: {}/{}, score:  {:0.3f}, average: {}, epsilon: {}".format(e,
                                                                             episode, score,  str(agent.average[-1])[:5],agent.epsilon))
 

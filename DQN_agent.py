@@ -53,20 +53,21 @@ class DQN:
         self.action_space = action_space
         self.state_space = state_space
         self.epsilon = 1
+        self.epsilon_min=.1
         self.gamma = .9
-        self.batch_size =  32
-        self.epsilon_min = .1
-        self.epsilon_decay = 0.999# 0.999998  (98 *4)
+        self.batch_size = 64
+        #self.epsilon_decay = 0.999# 0.999998  (98 *4)
+        self.epsilon_decay_episodes = 1000
         self.epsilon_log = []
         # self.burn_limit = .001
         self.learning_rate = 0.00025
         self.replay_freq = 1
-        self.startEpisode =250
-        self.current_step = 0
+        self.startEpisode =500
         self.memory = Memory(500000)
         self.optimizer_model = 'Adam'
         self.log_data=[]
         self.log_history=[]
+        self.epsilons = np.linspace(self.epsilon, self.epsilon_min, self.epsilon_decay_episodes)# The epsilon decay schedule
         if model == None:
             self.model = self.build_model()  # dfault _model
             # self.target_model = self.build_modelGPU()
@@ -90,13 +91,11 @@ class DQN:
 
     def act(self, state):
 
-            
-            
             if np.random.rand() <= self.epsilon:  # Exploration
             #    if DQN.currEpisode <=  self.startEpisode:
-                    return (random.choices(population=range(6),weights=(0.32,0.32,0.05,0.15,0.1,0.05),
-                k=1)).pop()   # weighted exploration 
-                # return random.randrange(self.action_space)
+                #     return (random.choices(population=range(6),weights=(0.32,0.32,0.05,0.15,0.1,0.05),
+                # k=1)).pop()   # weighted exploration 
+                return random.randrange(self.action_space)
             
             act_values = self.model.predict(state)
             return np.argmax(act_values[0])  # returns action (Exploitation)
@@ -117,8 +116,7 @@ class DQN:
                
                 history = self.model.fit(state, target_f, epochs=1, verbose=0, sample_weight=np.array([is_weight[i]]))
                 (self.log_history.append(history.history["loss"]))
-                if self.epsilon > self.epsilon_min: # Epsilon Update
-                        self.epsilon *= self.epsilon_decay    
+                
                    
              
 
@@ -152,7 +150,7 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
                 x2= []
                 for i in agent.epsilon_log:
                         t2.append(i)
-                PlotData("Iteration_versus_Epsilon",["Iteration","epsilon" ],[t2],["Epsilon"])      
+                PlotData("Episode_versus_Epsilon",["episode","epsilon" ],[t2],["Epsilon"])      
                 print("episode: {}/{}, score:  {:0.3f}, average: {}, epsilon: {}".format(e,
                                                                             episode, score,  str(agent.average[-1])[:5],agent.epsilon))
 
@@ -160,7 +158,6 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
     action_space = 6
     state_space = env.REM_STEP*54
     DQN.REM_STEP = env.REM_STEP 
-    max_steps = 98*9
     agent = DQN(action_space, state_space,  model=model)
     agent.env_name = "StarShip"
      
@@ -203,8 +200,10 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
             
         if e > agent.startEpisode  :
               (agent.replay())
+              agent.epsilon= agent.epsilons[e-agent.startEpisode-1]
+             # if agent.epsilon > agent.epsilon_min: # Epsilon Update
+             
                    
-        agent.current_step  +=1 
         if DQN.currEpisode % ch == 0:
              saveModel(agent,score) 
 

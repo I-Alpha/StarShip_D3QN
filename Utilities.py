@@ -80,7 +80,7 @@ def saveLog(obj, name="lastRun.txt",  dir="", autosavep =False):
             x2= []
             for i in obj.epsilon_log:
                     t2.append(i)
-            PlotData("Iteration_versus_Epsilon",["Iteration","epsilon" ],[t2],["Epsilon"],obj.savedir)       
+            PlotData("Episode_versus_Epsilon",["episode","epsilon" ],[t2],["Epsilon"],obj.savedir)       
          
    
 #plot functions

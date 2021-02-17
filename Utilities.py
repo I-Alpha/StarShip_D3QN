@@ -32,7 +32,7 @@ from icecream import ic
 from DQN_agent import *
 #Save funcrions 
 
-lastCheckpoint =  400
+lastCheckpoint =  0
 
 def saveModel(obj, score="n.a",checkpoint = 1):
     

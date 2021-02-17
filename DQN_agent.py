@@ -54,17 +54,18 @@ class DQN:
         self.state_space = state_space
         self.epsilon = 1
         self.epsilon_min=.1
-        self.gamma = .9
-        self.batch_size = 64
+        self.gamma = .99
+        self.batch_size = 32
         #self.epsilon_decay = 0.999# 0.999998  (98 *4)
-        self.epsilon_decay_episodes = 1000
+        self.epsilon_decay_episodes = 1000 * 98
         self.epsilon_log = []
         # self.burn_limit = .001
         self.learning_rate = 0.00025
         self.replay_freq = 1
-        self.startEpisode =500
+        self.startEpisode =10
+        self.update_step = 20
         self.memory = Memory(500000)
-        self.optimizer_model = 'Adam'
+        self.optimizer_model = 'RMSProp'
         self.log_data=[]
         self.log_history=[]
         self.epsilons = np.linspace(self.epsilon, self.epsilon_min, self.epsilon_decay_episodes)# The epsilon decay schedule
@@ -80,7 +81,7 @@ class DQN:
         self.savedir = "savedModels/"+self.model.name+"/"+time_().strftime("%m%d%h")+"/"
     
     def build_model(self):
-              return FCTime_distributed_model((self))
+              return build_1CNNBase(self)
 
     def memorize(self, state, action, reward, next_state, done):
         # Calculate TD-Error for Prioritized Experience Replay
@@ -160,7 +161,7 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
     DQN.REM_STEP = env.REM_STEP 
     agent = DQN(action_space, state_space,  model=model)
     agent.env_name = "StarShip"
-     
+    total_t =0
     
     for e in range(lchk, episode): 
 
@@ -175,6 +176,7 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
         state = funcs[0]()
         score = 0
         for i in itertools.count():
+            
             if i != 0:
                 if i % 98 == 0:
                     env.time_multipliyer *= 1.5
@@ -197,11 +199,13 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
                     saveModel(agent,score) 
                     env.save = False
                 break
-            
-        if e > agent.startEpisode  :
+            if e >= agent.startEpisode: # Epsilon Update
+                          agent.epsilon= agent.epsilons[total_t]
+            total_t+=1              
+        if e >= agent.startEpisode:
+            if e % agent.update_step==0 :
               (agent.replay())
-              agent.epsilon= agent.epsilons[e-agent.startEpisode-1]
-             # if agent.epsilon > agent.epsilon_min: # Epsilon Update
+            
              
                    
         if DQN.currEpisode % ch == 0:

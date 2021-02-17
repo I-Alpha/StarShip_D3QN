@@ -1,2 +1,1 @@
-
-        self.log_history=[]
+nt("\nbeginni

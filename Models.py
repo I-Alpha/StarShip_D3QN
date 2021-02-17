@@ -32,7 +32,7 @@ import plotly.graph_objs as go
 import plotly.figure_factory as FF
 from icecream import ic
 
-HUBER_LOSS_DELTA = 1.35
+HUBER_LOSS_DELTA = 2.5
 
 
 def huber_loss(y_true, y_predict):
@@ -48,44 +48,54 @@ def huber_loss(y_true, y_predict):
 def gaussian(x):
     return K.exp(-K.pow(x,2))
 
+def gelu(x):
+    return 0.5 * x * (1 + tf.tanh(tf.sqrt(2 / np.pi) * (x + 0.044715 * tf.pow(x, 3))))
+
 def build_1CNNBase(self, action_space=6, dueling=True):
         self.network_size = 256
-        X_input = Input(shape=(4,-1,))
-        input_reshape=((self.batch_size,self.REM_STEP,-1))
+        X_input = Input(shape=(self.REM_STEP*54,))
+        input_reshape=(self.REM_STEP,54)
+        X = X_input
         truncatedn_init = initializers.TruncatedNormal(0, 1e-2)
-        
         x_init = "he_uniform"
-
         y_init = initializers.glorot_uniform()
-        const_init = initializers.constant(1e-2)
 
+        const_init = initializers.constant(1e-2)
     
         X = X_input 
         X = Reshape(input_reshape)(X)    
 
-        cnn1 = TimeDistributed(Dense(64, kernel_initializer='he_uniform',))(X)
-        cnn1 = gaussian(cnn1)
-        cnn1  = MaxPooling1D(2)(cnn1) 
+        cnn1 = TimeDistributed(Dense(32, kernel_initializer='he_uniform',))(X)
+        cnn1 = LeakyReLU(0.65)(cnn1)
+        cnn1 = TimeDistributed(Dense(64, kernel_initializer='he_uniform',))(cnn1)
+        cnn1 = LeakyReLU(0.35)(cnn1)
+        cnn1  =MaxPooling1D(2)(cnn1) 
         cnn1 = Flatten()(cnn1)
+        cnn1 = Dense(128,activation="relu", kernel_initializer='he_uniform', )(cnn1)
 
-        cnn2 = TimeDistributed(Dense(64, kernel_initializer='he_uniform',))(X) 
-        cnn2 = LeakyReLU(.8)(cnn2)
-        cnn2 = MaxPooling1D(2)(cnn2) 
-        cnn2 = Flatten()(cnn2) 
+        # cnn2 = TimeDistributed(Dense(64, kernel_initializer='he_uniform',))(X) 
+        # cnn2 = LeakyReLU(.4)(cnn2)
+        # cnn2 = MaxPooling1D(2)(cnn2) 
+        # cnn2 = Flatten()(cnn2) 
+
         # cnn2 = LocallyConnected1D(filters=64, kernel_initializer='he_uniform', kernel_size=2)(X)
         # cnn2 = LeakyReLU(0.3)(cnn2)
         # cnn2 = LocallyConnected1D(filters=64, kernel_initializer='he_uniform', kernel_size=2)(X)
         # cnn2 = Dense(128,activation="relu", kernel_initializer='he_uniform', )(cnn2)
         # cnn2 = Flatten()(cnn2)
 
-        # cnn3 = Conv1D(filters=64, kernel_initializer='he_uniform', kernel_size=2)(X)
-        # cnn3 = LeakyReLU(0.3)(cnn3)
-        # cnn3 = MaxPooling1D(2)(cnn3)
-        # cnn3 = Dense(64,activation="relu", kernel_initializer='he_uniform', )(cnn3)
-        # cnn3 = Flatten()(cnn3)
-        merge = concatenate([cnn1,cnn2])
+        cnn3 = LocallyConnected1D(filters=32, kernel_initializer='he_uniform', kernel_size=3)(X)
+        cnn3 = gelu(cnn3)
+        cnn3 = Conv1D(filters=64, kernel_initializer='he_uniform', padding="same", kernel_size=2)(cnn3)        
+        cnn3 = gelu(cnn3)
+        cnn3 = MaxPooling1D(pool_size=(2))(cnn3)
+        cnn3 = Dropout(0.15)(cnn3)
+        cnn3 = Flatten()(cnn3)
+        cnn3 = Dense(128,activation="relu", kernel_initializer='he_uniform', )(cnn3)
+     
+        merge = concatenate([cnn1,cnn3])
 
-        X = Dense(self.network_size/2, 
+        X = Dense(self.network_size*2, 
                   kernel_initializer='he_uniform',activation ="relu")(merge) 
  
         X = Dense(self.network_size, 
@@ -107,7 +117,7 @@ def build_1CNNBase(self, action_space=6, dueling=True):
             X = Dense(action_space, activation="relu",
                       kernel_initializer='he_uniform')(X)
 
-        model = Model(inputs=X_input, outputs=X, name='build_TMaxpoolin_1')
+        model = Model(inputs=X_input, outputs=X, name='build_TMaxpoolin_3')
         model.compile(loss=huber_loss, optimizer=Adam(
             lr=self.learning_rate),  metrics=["accuracy"])
 
@@ -116,30 +126,36 @@ def build_1CNNBase(self, action_space=6, dueling=True):
         return model
 
 def build_modelPar1(self, dueling=True):
-        X_input = Input(shape=(self.REM_STEP*112))
-        input_reshape=((self.REM_STEP,112))
+        self.network_size = 256
+        X_input = Input(shape=(self.REM_STEP*54,))
+        input_reshape=(1,4,54)
+        x = X_input
         truncatedn_init = initializers.TruncatedNormal(0, 1e-2)
         x_init = "he_uniform"
         y_init = initializers.glorot_uniform()
+
         const_init = initializers.constant(1e-2)
-  
-        x = Input(shape=(self.state_space,))
+        
+        v = Reshape((4,-1))(x)
         t = Reshape(input_reshape)(x)
-            # a series of fully connected layer for estimating V(s)
-        y11 = Dense(256, activation='tanh', kernel_initializer=x_init)(x)
-        y12 = (y11) 
-            # a series of fully connected layer for estimating A(s,a)
-  
-        y21 = TimeDistributed(Dense(64, activation="tanh",kernel_initializer=x_init))(t)
-        y22= Flatten()(y21)
+        cnn2 = (LocallyConnected2D(filters=64,  kernel_initializer='he_uniform', kernel_size=(1,4), strides =(1,1), padding = "valid"))(t)
+        cnn2 = gaussian(cnn2)
+        cnn2 = Flatten()(cnn2)
+        cnn2 = Dense(128, activation="relu",kernel_initializer=x_init)(cnn2)         
+ 
 
-
-        #combine V(s) and A(s,a) to get Q(s,a)
-        conc = Add()([y12, y22])
+        cnn1 = TimeDistributed(Dense(64,kernel_initializer='he_uniform',))(v)       
+        cnn1 = LeakyReLU(.3)(cnn1)
+        cnn1 = TimeDistributed(Dense(64, activation="relu", kernel_initializer='he_uniform',))(cnn1)       
+        cnn1 = Flatten()(cnn1)
+        cnn1 = (Dense(128, activation="relu", kernel_initializer='he_uniform',))(cnn1)       
+        
+        
+        conc = concatenate([cnn1,cnn2])
         w = Dense(512, activation="relu",kernel_initializer=x_init)(conc)
-        w = Dense(256, activation="relu",kernel_initializer=x_init)(w)         
+        w = Dense(256, activation="relu",kernel_initializer=x_init)(w)        
 
-        state_value = Dense(1, kernel_initializer='he_uniform', activation="softmax")(w)
+        state_value = Dense(1, kernel_initializer='he_uniform')(w)
         state_value = Lambda(lambda s: K.expand_dims(
         s[:, 0], -1), output_shape=(self.action_space,))(state_value)
 
@@ -150,16 +166,16 @@ def build_modelPar1(self, dueling=True):
 
         out = Add()([state_value, action_advantage])
   
-        model = Model([x], out, name='Parallel128-FC-model')
+        model = Model([x], out, name='TCnn-model_1')
 
         if self.optimizer_model == 'Adam':
             optimizer = Adam(lr=self.learning_rate, clipnorm=1.)
         elif self.optimizer_model == 'RMSProp':
-            optimizer = RMSprop(lr=self.learning_rate, clipnorm=1.)
+            optimizer = RMSprop(self.learning_rate, 0.99, 0.0, 1e-6,)
         else:
             print('Invalid optimizer!')
 
-        model.compile(loss="mean_squared_error", optimizer=optimizer)
+        model.compile(loss="mse",  optimizer=optimizer)
         model.summary()
         return model
 

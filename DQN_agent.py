@@ -54,16 +54,16 @@ class DQN:
         self.state_space = state_space
         self.epsilon = 1
         self.epsilon_min=.1
-        self.gamma = .99
-        self.batch_size = 32
+        self.gamma = .999
+        self.batch_size = 128
         #self.epsilon_decay = 0.999# 0.999998  (98 *4)
-        self.epsilon_decay_episodes = 1000 * 98
+        self.epsilon_decay_episodes = 1000 
         self.epsilon_log = []
         # self.burn_limit = .001
         self.learning_rate = 0.00025
         self.replay_freq = 1
-        self.startEpisode =10
-        self.update_step = 20
+        self.startEpisode =4
+        self.update_ep =700
         self.memory = Memory(500000)
         self.optimizer_model = 'RMSProp'
         self.log_data=[]
@@ -81,7 +81,7 @@ class DQN:
         self.savedir = "savedModels/"+self.model.name+"/"+time_().strftime("%m%d%h")+"/"
     
     def build_model(self):
-              return build_1CNNBase(self)
+              return build_Base(self)
 
     def memorize(self, state, action, reward, next_state, done):
         # Calculate TD-Error for Prioritized Experience Replay
@@ -91,7 +91,6 @@ class DQN:
             self.memory.add(td_error, (state, action, reward, next_state, done))
 
     def act(self, state):
-
             if np.random.rand() <= self.epsilon:  # Exploration
             #    if DQN.currEpisode <=  self.startEpisode:
                 #     return (random.choices(population=range(6),weights=(0.32,0.32,0.05,0.15,0.1,0.05),
@@ -100,6 +99,16 @@ class DQN:
             
             act_values = self.model.predict(state)
             return np.argmax(act_values[0])  # returns action (Exploitation)
+
+    def decrement_epsilon(self):
+        if self.epsilon > self.epsilon_min:
+            try : 
+                if DQN.currEpisode >= self.startEpisode: # Epsilon Update
+                   self.epsilon = self.epsilons[DQN.currEpisode-self.startEpisode]
+            except: 
+                pass
+        else:
+            self.epsilon = 0.1
 
     def replay(self):
             if self.memory.tree.n_entries < self.batch_size:
@@ -113,21 +122,15 @@ class DQN:
                     target = reward
                 target_f = self.model.predict(state)
                 target_f[0][action] = target
-                # Gradient Update. Pay attention at the sample weight as proposed by the PER Paper
-               
+                # Gradient Update. Pay attention at the sample weight as proposed by the PER Paper               
                 history = self.model.fit(state, target_f, epochs=1, verbose=0, sample_weight=np.array([is_weight[i]]))
-                (self.log_history.append(history.history["loss"]))
+            self.log_history.append(history.history["loss"])
+            self.decrement_epsilon()
                 
-                   
-             
-
-
-
     
 gl_total_frames = 0
 gl_score = 0
 gl_loss = 0
-
 
 def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
 
@@ -152,8 +155,8 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
                 for i in agent.epsilon_log:
                         t2.append(i)
                 PlotData("Episode_versus_Epsilon",["episode","epsilon" ],[t2],["Epsilon"])      
-                print("episode: {}/{}, score:  {:0.3f}, average: {}, epsilon: {}".format(e,
-                                                                            episode, score,  str(agent.average[-1])[:5],agent.epsilon))
+                print("episode: {}/{}, score:  {:0.3f}, average: {}, epsilon: {} total_t: {}".format(e,
+                                                                            episode, score,  str(agent.average[-1])[:5],agent.epsilon,total_t))
 
     #loss = []
     action_space = 6
@@ -163,34 +166,32 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
     agent.env_name = "StarShip"
     total_t =0
     
-    for e in range(lchk, episode): 
-
-        state = (env.reset())
-        ## Burnrate function
-        # if agent.learning_rate < agent.burn_limit and DQN.currEpisode > 0:
-        #     # after 1000 iterations learning rate will be 0.001
-        #     agent.learning_rate += (.0000009)
+    for e in range(lchk, episode):       
+      
+        state = env.reset()
         DQN.currEpisode = e
         funcs = [lambda: (np.reshape(state, (1, state_space))),
                  lambda: (np.reshape(state, (1, len(state))))]
         state = funcs[0]()
         score = 0
+
         for i in itertools.count():
-            
+        
             if i != 0:
                 if i % 98 == 0:
                     env.time_multipliyer *= 1.5
                 env.time_multipliyer += 0.01              
            
-            action = (agent.act(state))
+            action = agent.act(state)
             reward, next_state, done = env.step(action) 
             score += reward
             funcs = [lambda: (np.reshape(next_state, (1, state_space))), lambda: (
                 np.reshape(next_state, (1, len(next_state))))]
             next_state = funcs[0]()
-            (agent.memorize(state, action, reward, next_state, done))
+            agent.memorize(state, action, reward, next_state, done)
             state = next_state        
             average = 0
+              
             #append to lists 
             if done: 
                 saveResults(agent) 
@@ -199,14 +200,15 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
                     saveModel(agent,score) 
                     env.save = False
                 break
-            if e >= agent.startEpisode: # Epsilon Update
-                          agent.epsilon= agent.epsilons[total_t]
-            total_t+=1              
-        if e >= agent.startEpisode:
-            if e % agent.update_step==0 :
-              (agent.replay())
-            
-             
+            total_t+=1
+
+        if e == 4:             
+             print("first target update.")
+             agent.replay() 
+        elif e >= agent.startEpisode:
+            if e % agent.update_ep==0 :
+              print("target updated.")
+              agent.replay()  
                    
         if DQN.currEpisode % ch == 0:
              saveModel(agent,score) 

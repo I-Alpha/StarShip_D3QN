@@ -31,6 +31,8 @@ import plotly.express as px
 import plotly.graph_objs as go
 import plotly.figure_factory as FF
 from icecream import ic
+from keras.layers.advanced_activations import PReLU,LeakyReLU
+
 
 HUBER_LOSS_DELTA = 2.5
 
@@ -329,21 +331,26 @@ def FCTime_distributed_model(self, action_space=6, dueling=True):
 
 def build_Base(self, input_shape=(4,112,), action_space=6, dueling=True):
         self.network_size = 256
-
-        X_input = Input(shape=(4*112,))
+        X_input = Input(shape=(self.REM_STEP*54,))
+        input_reshape=(self.REM_STEP,54,1)
+        Xreshaped = Reshape(input_reshape)(X_input)
         X = X_input
-        X = Dense(self.network_size*2, 
-                  kernel_initializer='he_uniform',activation ="relu")(X)  
-        X = Dense(self.network_size, 
-                  kernel_initializer='he_uniform',activation ="relu")(X)  
+        truncatedn_init = initializers.TruncatedNormal(0, 1e-2)
+        x_init = "he_uniform"
+        y_init = initializers.glorot_uniform()
+
+        X = Dense(self.network_size/4, activation =PReLU())(Xreshaped)
+        X = Flatten()(X)
+        X = Dense(self.network_size*2, activation =PReLU())(X)  
+        X = Dense(self.network_size, kernel_initializer=y_init, activation =LeakyReLU())(X)
         if dueling:
             state_value = Dense(
-                1, kernel_initializer='he_uniform' )(X)
+                1, activation ="softmax")(X)
             state_value = Lambda(lambda s: K.expand_dims(
                 s[:, 0], -1), output_shape=(action_space,))(state_value)
 
             action_advantage = Dense(
-                action_space, kernel_initializer='he_uniform') (X)
+                action_space, activation ="linear") (X)
             action_advantage = Lambda(lambda a: a[:, :] - K.mean(
                 a[:, :], keepdims=True), output_shape=(action_space,))(action_advantage)
 

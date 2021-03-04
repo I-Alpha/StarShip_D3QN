@@ -34,13 +34,13 @@ class StarShipGame:
         self.spaceShipSprite = SpaceShipSprite(StarShipGame.screen,r'Assets\imgs\triangleShip.png',startPosition=((screen_size[0]/2)-60,screen_size[1]/2))   
         self.obstacleGenerator = ObstacleGenerator(StarShipGame.screen,r'Assets\imgs\brick.png')
         self.screen_size = screen_size
-        self.FPS = 32
+        self.FPS =100
         self.clock = pygame.time.Clock()
         pygame.display.set_caption("StarShip")
         self.obstacleGenerator.generate(0); 
         StarShipGame.liveObstacles = self.obstacleGenerator.liveObstacles
         self.save=False 
-        self.REM_STEP = 1
+        self.REM_STEP = 2
         self.ROWS =  1
         self.COLS = 54
         self.image_memory = np.zeros((self.REM_STEP, self.ROWS, self.COLS))
@@ -442,7 +442,7 @@ class StarShipGame:
             state = self.getEnvStateOnScreen()
         # for i in obs_collection:
         #     state.append(i)  
-        state=np.reshape(state,(1,54))
+        state=np.reshape(state,(2,54))
         return state
   
      
@@ -495,7 +495,7 @@ class StarShipGame:
         
         StarShipGame.liveObstacles =self.obstacleGenerator.liveObstacles     
         state = self.getEnvStateOnScreen()
-        state=np.reshape(state,(1,54))
+        state=np.reshape(state,(2,54))
         if self.done:        
            
             return self.reward, state ,self.done       

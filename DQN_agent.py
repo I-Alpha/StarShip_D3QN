@@ -55,15 +55,15 @@ class DQN:
         self.epsilon = 1
         self.epsilon_min=.1
         self.gamma = .999
-        self.batch_size = 128
+        self.batch_size = 256
         #self.epsilon_decay = 0.999# 0.999998  (98 *4)
-        self.epsilon_decay_episodes = 1000 
+        self.epsilon_decay_episodes = 500 
         self.epsilon_log = []
         # self.burn_limit = .001
-        self.learning_rate = 0.00025
+        self.learning_rate = 0.0025
         self.replay_freq = 1
         self.startEpisode =4
-        self.update_ep =700
+        self.update_ep =3
         self.memory = Memory(500000)
         self.optimizer_model = 'RMSProp'
         self.log_data=[]
@@ -81,7 +81,7 @@ class DQN:
         self.savedir = "savedModels/"+self.model.name+"/"+time_().strftime("%m%d%h")+"/"
     
     def build_model(self):
-              return build_Base(self)
+              return FCTime_distributed_model(self)
 
     def memorize(self, state, action, reward, next_state, done):
         # Calculate TD-Error for Prioritized Experience Replay
@@ -95,8 +95,7 @@ class DQN:
             #    if DQN.currEpisode <=  self.startEpisode:
                 #     return (random.choices(population=range(6),weights=(0.32,0.32,0.05,0.15,0.1,0.05),
                 # k=1)).pop()   # weighted exploration 
-                return random.randrange(self.action_space)
-            
+                return random.randrange(self.action_space)            
             act_values = self.model.predict(state)
             return np.argmax(act_values[0])  # returns action (Exploitation)
 
@@ -113,18 +112,34 @@ class DQN:
     def replay(self):
             if self.memory.tree.n_entries < self.batch_size:
                 return
-            batch, idxs, is_weight = (self.memory.sample(self.batch_size))
-            for i in range(self.batch_size):
-                state, action, reward, next_state, done = batch[i]
-                if not done:
-                    target = (reward + self.gamma * np.amax(self.model.predict(next_state)[0]))
-                else:
-                    target = reward
-                target_f = self.model.predict(state)
-                target_f[0][action] = target
-                # Gradient Update. Pay attention at the sample weight as proposed by the PER Paper               
-                history = self.model.fit(state, target_f, epochs=1, verbose=0, sample_weight=np.array([is_weight[i]]))
-            self.log_history.append(history.history["loss"])
+            # batch, idxs, is_weight = (self.memory.sample(self.batch_size))
+            # for i in range(self.batch_size):
+            #     state, action, reward, next_state, done = batch[i]
+            #     if not done:
+            #         target = (reward + self.gamma * np.amax(self.model.predict_on_batch(next_state)[0]))
+            #     else:
+            #         target = reward
+            #     target_f = self.model.predict_on_batch(state)
+            #     target_f[0][action] = target
+            #     # Gradient Update. Pay attention at the sample weight as proposed by the PER Paper               
+            #     history = self.model.fit(state, target_f, epochs=1, verbose=0, sample_weight=np.array([is_weight[i]]))
+            # self.log_history.append(history.history["loss"])
+
+            minibatch, idxs, is_weight =self.memory.sample(self.batch_size)
+            states = np.array([i[0] for i in minibatch], dtype=float)
+            actions = np.array([i[1] for i in minibatch])
+            rewards = np.array([i[2] for i in minibatch])
+            next_states = np.array([i[3] for i in minibatch], dtype=float)
+            dones = np.array([i[4] for i in minibatch])
+            states = np.squeeze(states)
+            next_states = np.squeeze(next_states)
+            targets = (rewards*1) + self.gamma * \
+                (np.amax(self.model.predict_on_batch(next_states), axis=1))*(1-dones)
+            targets_full = self.model.predict_on_batch(states)
+            ind = np.array([i for i in range(self.batch_size)])
+            targets_full[[ind], [actions]] = targets
+            history = self.model.fit(states, targets_full, verbose=0, sample_weight = is_weight)
+            self.log_history.append(history.history['loss'])
             self.decrement_epsilon()
                 
     
@@ -202,11 +217,11 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
                 break
             total_t+=1
 
-        if e == 4:             
+        # if e == 0:           
+        if e == agent.startEpisode:          
              print("first target update.")
-             agent.replay() 
-        elif e >= agent.startEpisode:
-            if e % agent.update_ep==0 :
+             agent.replay()  
+        if e % agent.update_ep==0 and e>0 :
               print("target updated.")
               agent.replay()  
                    

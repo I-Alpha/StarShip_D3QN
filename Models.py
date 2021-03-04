@@ -67,13 +67,12 @@ def build_1CNNBase(self, action_space=6, dueling=True):
         X = X_input 
         X = Reshape(input_reshape)(X)    
 
-        cnn1 = TimeDistributed(Dense(32, kernel_initializer='he_uniform',))(X)
-        cnn1 = LeakyReLU(0.65)(cnn1)
-        cnn1 = TimeDistributed(Dense(64, kernel_initializer='he_uniform',))(cnn1)
-        cnn1 = LeakyReLU(0.35)(cnn1)
-        cnn1  =MaxPooling1D(2)(cnn1) 
+        cnn1 = TimeDistributed(Dense(64, activation =PReLU(), kernel_initializer='he_uniform',))(X) 
+        cnn1 = TimeDistributed(Dense(64, activation =PReLU(),kernel_initializer='he_uniform',))(cnn1) 
+        cnn1 = LocallyConnected1D(filters=64,  kernel_size=4, activation =PReLU(),kernel_initializer='he_uniform')(X)
         cnn1 = Flatten()(cnn1)
-        cnn1 = Dense(128,activation="relu", kernel_initializer='he_uniform', )(cnn1)
+        cnn1 = Dense(512,activation="relu", kernel_initializer='he_uniform', )(cnn1)
+        cnn1 = Dense(256,activation="relu", kernel_initializer='he_uniform', )(cnn1) 
 
         # cnn2 = TimeDistributed(Dense(64, kernel_initializer='he_uniform',))(X) 
         # cnn2 = LeakyReLU(.4)(cnn2)
@@ -271,26 +270,19 @@ def sumofsquares(y_true, y_pred):  # critic loss
 def FCTime_distributed_model(self, action_space=6, dueling=True):
         self.network_size = 256
         X_input = Input(shape=(self.REM_STEP*54,))
-        input_reshape=(self.REM_STEP,54)
+        input_reshape=(self.REM_STEP,54,1)
         X = X_input
         truncatedn_init = initializers.TruncatedNormal(0, 1e-2)
         x_init = "he_uniform"
         y_init = initializers.glorot_uniform()
-
-        const_init = initializers.constant(1e-2)
-        X = Reshape(input_reshape)(X)
-        # X =Conv1D(4,(4),(4),activation="relu",) (X)
-        # X = Conv2D(1, (1,4), strides=(1,1),padding="same",activation="relu", kernel_initializer=x_init,   data_format="channels_first")(X)      
-        x = Dense(64,
-                  kernel_initializer=x_init)(X)     
-        x = gaussian(x)
-        x = Dense(128,
-                  kernel_initializer=x_init)(x)     
-        x = gaussian(x)
-        X = Flatten()(X)
-        X = Dense(512, kernel_initializer=y_init, activation="relu")(X) 
-        X = Dense(256, kernel_initializer=y_init, activation="relu")(X) 
- 
+        const_init = initializers.constant(1e-2)        
+        X_reshaped = Reshape(input_reshape)(X_input)
+        cnn1 =Conv1D(filters=16,  kernel_size=(1), padding= "same",activation =PReLU(),kernel_initializer='he_uniform' , use_bias=True)(X_reshaped)          
+        cnn1 =Conv2D(filters=32,  kernel_size=(2),  activation =LeakyReLU(.1), strides=2, kernel_initializer='he_uniform' , use_bias=True)(cnn1)   
+        cnn1 = Flatten()(cnn1)
+        cnn1 = Dense(512,activation="relu", kernel_initializer='he_uniform',)(cnn1)
+        cnn1 = Dense(256,activation="relu", kernel_initializer='he_uniform',)(cnn1) 
+        X= cnn1
  
                          
         # X = Conv2D(64, 4, strides=(2),padding="valid",activation="elu", kernel_initializer=x_init,   data_format="channels_first")(X)
@@ -306,12 +298,12 @@ def FCTime_distributed_model(self, action_space=6, dueling=True):
         # # Hidden layer with 64 nodes
         # X = Dense(64, activation="relu", kernel_initializer=truncatedn_init, bias_initializer=const_init)(X)
         if dueling:
-            state_value = Dense(1, kernel_initializer=y_init,activation="softmax" )(X)
+            state_value = Dense(1, kernel_initializer=truncatedn_init )(X)
             state_value = Lambda(lambda s: K.expand_dims(
                 s[:, 0], -1), output_shape=(action_space,))(state_value)
 
             action_advantage = Dense(
-                action_space, kernel_initializer=y_init ,activation="linear")(X)
+                action_space, kernel_initializer=y_init  )(X)
             action_advantage = Lambda(lambda a: a[:, :] - K.mean(
                 a[:, :], keepdims=True), output_shape=(action_space,))(action_advantage)
 

@@ -4,8 +4,8 @@ import numpy as np
 class Memory:  # stored as ( s, a, r, s_ ) in SumTree
     e = 0.01
     a = 0.8
-    beta = 0.3
-    beta_increment_per_sampling = 0.0005
+    beta = 0.1
+    beta_increment_per_sampling = 0.0001
 
     def __init__(self, capacity):
         self.tree = SumTree(capacity)

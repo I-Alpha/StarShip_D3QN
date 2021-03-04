@@ -1,1 +1,1 @@
-nt("\nbeginni
+batc

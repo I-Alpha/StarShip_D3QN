@@ -125,8 +125,7 @@ class ObstacleGenerator():
                         i.health -= x.attackDmg
                         if i.health<1:
                             i.dispose()                  
-                        x.dispose() 
-                        del x
+                        x.dispose()  
                         self.updateList()                
                         self.generate(num=1, delay =1000,seed=pygame.time.get_ticks())  
                         ObstacleGenerator.hits+=1                                        

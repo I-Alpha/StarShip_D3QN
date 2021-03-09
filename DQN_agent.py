@@ -52,19 +52,19 @@ class DQN:
         self.scores, self.episodes, self.average = [], [], []
         self.action_space = action_space
         self.state_space = state_space
-        self.epsilon = 1
+        self.epsilon =1
         self.epsilon_min=.1
         self.gamma = .999
-        self.batch_size = 256
-        #self.epsilon_decay = 0.999# 0.999998  (98 *4)
-        self.epsilon_decay_episodes = 500 
+        self.batch_size = 128
+        self.epsilon_decay = 0.99995# 0.999998  (98 *4)
+        self.epsilon_decay_episodes = 10000
         self.epsilon_log = []
         # self.burn_limit = .001
-        self.learning_rate = 0.0025
+        self.learning_rate = 0.0004 
         self.replay_freq = 1
-        self.startEpisode =4
-        self.update_ep =3
-        self.memory = Memory(500000)
+        self.startEpisode =2
+        self.update_ep =5
+        self.memory = Memory(1000000)
         self.optimizer_model = 'RMSProp'
         self.log_data=[]
         self.log_history=[]
@@ -103,8 +103,9 @@ class DQN:
         if self.epsilon > self.epsilon_min:
             try : 
                 if DQN.currEpisode >= self.startEpisode: # Epsilon Update
-                   self.epsilon = self.epsilons[DQN.currEpisode-self.startEpisode]
-            except: 
+                   self.epsilon *= self.epsilon_decay
+            except:
+                self.epsilon = 0.1 
                 pass
         else:
             self.epsilon = 0.1
@@ -141,12 +142,8 @@ class DQN:
             history = self.model.fit(states, targets_full, verbose=0, sample_weight = is_weight)
             self.log_history.append(history.history['loss'])
             self.decrement_epsilon()
-                
-    
-gl_total_frames = 0
-gl_score = 0
-gl_loss = 0
-
+                 
+total_t =0
 def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
 
     def saveResults(agent): 
@@ -169,23 +166,22 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
                 x2= []
                 for i in agent.epsilon_log:
                         t2.append(i)
-                PlotData("Episode_versus_Epsilon",["episode","epsilon" ],[t2],["Epsilon"])      
-                print("episode: {}/{}, score:  {:0.3f}, average: {}, epsilon: {} total_t: {}".format(e,
-                                                                            episode, score,  str(agent.average[-1])[:5],agent.epsilon,total_t))
+                PlotData("Episode_versus_Epsilon",["episode","epsilon" ],[t2],["Epsilon"]) 
 
+                
     #loss = []
     action_space = 6
-    state_space = env.REM_STEP*54
+    state_space =env.COLS * env.REM_STEP 
     DQN.REM_STEP = env.REM_STEP 
     agent = DQN(action_space, state_space,  model=model)
     agent.env_name = "StarShip"
-    total_t =0
+ 
     
     for e in range(lchk, episode):       
       
         state = env.reset()
         DQN.currEpisode = e
-        funcs = [lambda: (np.reshape(state, (1, state_space))),
+        funcs = [lambda: (np.reshape(state, (1, state_space ))),
                  lambda: (np.reshape(state, (1, len(state))))]
         state = funcs[0]()
         score = 0
@@ -200,30 +196,34 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
             action = agent.act(state)
             reward, next_state, done = env.step(action) 
             score += reward
-            funcs = [lambda: (np.reshape(next_state, (1, state_space))), lambda: (
+            funcs = [lambda: (np.reshape(next_state, (1, state_space ))), lambda: (
                 np.reshape(next_state, (1, len(next_state))))]
             next_state = funcs[0]()
             agent.memorize(state, action, reward, next_state, done)
             state = next_state        
+            global total_t 
+            if total_t % agent.update_ep==0:# and e>0 :
+                agent.replay()
             average = 0
               
             #append to lists 
-            if done: 
-                saveResults(agent) 
-                plotResults(agent)               
+            if done:     
+                
                 if  env.save:
                     saveModel(agent,score) 
-                    env.save = False
+                    env.save = False 
+                if e %5==0:
+                    saveResults(agent) 
+                    plotResults(agent) 
+                print("episode: {}/{}, score:  {:0.3f}, average: {}, epsilon: {} total_t: {}".format(e,
+                                                                            episode, score,  str(agent.average[-1])[:5],agent.epsilon,total_t))
                 break
+            
             total_t+=1
 
-        # if e == 0:           
-        if e == agent.startEpisode:          
-             print("first target update.")
-             agent.replay()  
-        if e % agent.update_ep==0 and e>0 :
-              print("target updated.")
-              agent.replay()  
+            # # if e == 0:           
+            # if e == agent.startEpisode:   
+            #     agent.replay() 
                    
         if DQN.currEpisode % ch == 0:
              saveModel(agent,score) 

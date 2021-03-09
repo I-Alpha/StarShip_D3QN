@@ -11,7 +11,7 @@ class SpaceShipSprite(DestructableObject):
       
       
 
-      def __init__(self,screen,image,attackDmg= 1,damage=0,health=4,startPosition=(0.0,0.0),ammoMax=4, name="SpaceShip-"):
+      def __init__(self,screen,image,attackDmg= 1,damage=0,health=4,startPosition=(0.0,0.0),ammoMax=5, name="SpaceShip-"):
                super().__init__(screen,image,attackDmg,damage,health,startPosition)               
                self.rect = (image)
                self.name = name 
@@ -21,11 +21,13 @@ class SpaceShipSprite(DestructableObject):
                self.screen = screen
                self.lives =1 
                self.maxhp=health
-               self.ammoCounter =5500
+               self.ammoCounter =.3
                self.firedAt=0      
-               self.maxProjectiles_on_screen =20
+               self.maxProjectiles_on_screen =15
+               self.action_status = 0
                SpaceShipSprite.liveProjectiles =[]
       def move(self,keys):
+           self.action_status = 0
            event = "none"         
            if  isinstance(keys,type(pygame.key.get_pressed())):
                 if len(keys)>0:
@@ -46,6 +48,7 @@ class SpaceShipSprite(DestructableObject):
 
            self.currentPos = self.updatePosition(event)
            self.boundsCheck()
+           return self.action_status
             
  
       def updatePosition(self,argument):
@@ -60,23 +63,36 @@ class SpaceShipSprite(DestructableObject):
                
 
       def boundsCheck(self):
-            if(self.CheckOutOfBounds("ymin")): self.currentPos  =  (self.currentPos[0],5)
-            if(self.CheckOutOfBounds("ymax")): self.currentPos  =  (self.currentPos[0],DestructableObject.bounds[1]-self.image_size[1]-5)         
-            if(self.CheckOutOfBounds("xmin")): self.currentPos  =  (5,self.currentPos[1])        
-            if(self.CheckOutOfBounds("xmax")): self.currentPos  =  (DestructableObject.bounds[0]-self.image_size[0]-5,self.currentPos[1])  
-               
+            if(self.CheckOutOfBounds("ymin")):
+                   self.currentPos  =  (self.currentPos[0],5)
+                   self.action_status = - 1
+            elif(self.CheckOutOfBounds("ymax")):
+                   self.currentPos  =  (self.currentPos[0],DestructableObject.bounds[1]-self.image_size[1]-5)         
+                   self.action_status = - 1  
+            elif(self.CheckOutOfBounds("xmin")): 
+                  self.currentPos  =  (5,self.currentPos[1])       
+                  self.action_status = - 1 
+            elif(self.CheckOutOfBounds("xmax")):
+                   self.currentPos  =  (DestructableObject.bounds[0]-self.image_size[0]-5,self.currentPos[1])  
+                   self.action_status = - 1
       def fireprojectile(self):      
             newprojectile = Projectile(self.screen,r'Assets\imgs\bullet1.png',movespeed=-8,startPosition=(self.currentPos[0]+5,self.currentPos[1]-14))
-        
+            mps = pygame.time.get_ticks()/1000 - self.firedAt/1000
             if self.currentAmmo > 0 :
-                   self.firedAt = pygame.time.get_ticks()
-                   SpaceShipSprite.liveProjectiles.append(newprojectile) 
-                   self.currentAmmo-=1
-            else:            
-                  reloadTime = pygame.time.get_ticks() - self.firedAt
-                  if reloadTime >= self.ammoCounter:
+                   if mps > 1 and self.currentAmmo < self.ammoMax:
+                         self.currentAmmo += 1
+                   if mps > .4:
+                         self.firedAt = pygame.time.get_ticks()
+                         SpaceShipSprite.liveProjectiles.append(newprojectile) 
+                         self.currentAmmo-=1
+                   else:
+                        self.action_status = -1
+            else:                   
+                  if mps >= self.ammoCounter:
                         self.currentAmmo = self.ammoMax
                         self.fireprojectile()
+                  else:
+                        self.action_status = -1
          
          
 

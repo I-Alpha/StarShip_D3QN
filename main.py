@@ -4,12 +4,14 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 from tensorflow import keras
 from icecream import ic
+from Models import *
+from keras.layers.advanced_activations import PReLU,LeakyReLU
 
 
 parser = argparse.ArgumentParser(
     description='Args for initialising training and testing of RL Agent')
 parser.add_argument('--mode', '-m', default='train')
-parser.add_argument('--model', '--mp', default="savedModels/FCTime_distributed_modelv2/0224Feb/FCTime_distributed_modelv2_epochs_1599_avg_-20.11_.h5")
+parser.add_argument('--model', '--mp', default=None)
 parser.add_argument('--epochs', '-e', type=int,default=10000)
 parser.add_argument('--learnrate', '-l', default=.001)
 parser.add_argument('--graphics', '-g', default=False)
@@ -28,10 +30,12 @@ if __name__ == '__main__':
     if args.last_epoch > 0 and  args.model == None:
         print("\n\n\nError. No model specified but last checkpoint specified at ",args.last_epoch,".")
         exit()
+        
     if args.mode == 'train':
             if args.model != None:
                 try: 
-                        model = keras.models.load_model(args.model)
+                        with keras.utils.CustomObjectScope({'PReLU': PReLU,'LeakyReLU':LeakyReLU}):  
+                            model = keras.models.load_model(args.model)
                         print(model.summary())       
                         print("\n\n\n  Model - {  " + args.model + "  }  has been loaded! ")                      
                         ans = input("Are you sure you want to use this model? Y/\/N ? :    ")

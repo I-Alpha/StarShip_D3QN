@@ -30,6 +30,8 @@ import plotly.graph_objs as go
 import plotly.figure_factory as FF
 from icecream import ic
 from DQN_agent import *
+from itertools import chain, combinations
+import csv
 #Save funcrions 
 
 lastCheckpoint =  50
@@ -87,8 +89,10 @@ def saveLog(obj, name="lastRun.txt",  dir="", autosavep =False):
 figures = {}
 plt.grid()
 
+
 def PlotData(title,axeslabels=["Epsiodes","Loss"],values=[],labels=[],saveDir = ""):         
     #First value is x- value
+    
         epochs = range(1, len(values[0])+1)
         for v,i in enumerate(values):
             plt.plot(epochs,i, label=labels[v])
@@ -100,7 +104,10 @@ def PlotData(title,axeslabels=["Epsiodes","Loss"],values=[],labels=[],saveDir = 
         plt.savefig(saveDir+title+".png")
         plt.clf()
 
-        
+
+def powerset(iterable):
+    s = list(iterable)
+    return chain.from_iterable(combinations(s, r) for r in range(1,len(s)+1))
  
 def mkdir_p(mypath):
     '''Creates a directory. equivalent to using mkdir -p on the command line'''

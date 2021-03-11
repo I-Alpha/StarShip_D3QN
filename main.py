@@ -11,7 +11,7 @@ from keras.layers.advanced_activations import PReLU,LeakyReLU
 parser = argparse.ArgumentParser(
     description='Args for initialising training and testing of RL Agent')
 parser.add_argument('--mode', '-m', default='train')
-parser.add_argument('--model', '--mp', default=None)
+parser.add_argument('--model', '--mp', default=r"savedModels\Hydra-1\0309Mar\Hydra-1_epochs_4758_avg_-7.66_.h5" )
 parser.add_argument('--epochs', '-e', type=int,default=10000)
 parser.add_argument('--learnrate', '-l', default=.001)
 parser.add_argument('--graphics', '-g', default=False)

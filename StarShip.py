@@ -154,14 +154,14 @@ class StarShipGame:
         if livep_len < self.spaceShipSprite.maxProjectiles_on_screen:        
             for l in range(livep_len,self.spaceShipSprite.maxProjectiles_on_screen):
                     label = "live_projectile_placeHolder_" + str(l) + "_"
-                    livep.append(0)              
-                    livep.append(0)
+                    livep.append(None)              
+                    livep.append(None)
                     # livep[label+"X_offset"]=0
                     # livep[label+"Y_offset"]=0
                     # livep[label+"CX_offset"]=0
                     # livep[label+"CY_offset"]=0
-                    livep.append(0)
-                    livep.append(0)
+                    livep.append(None)
+                    livep.append(None)
 
 
         for v in (livep):

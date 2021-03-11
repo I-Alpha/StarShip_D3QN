@@ -33,6 +33,7 @@ from icecream import ic
 from Models import *
 from Utilities import *
 import itertools
+
 np.random.seed(5)
 env = StarShipGame(True)
 
@@ -54,15 +55,15 @@ class DQN:
         self.state_space = state_space
         self.epsilon =1
         self.epsilon_min=.1
-        self.gamma = .999
+        self.gamma = .9999
         self.batch_size = 128
-        self.epsilon_decay = 0.99995# 0.999998  (98 *4)
+        self.epsilon_decay = 0.995# 0.999998  (98 *4)
         self.epsilon_decay_episodes = 10000
         self.epsilon_log = []
         # self.burn_limit = .001
         self.learning_rate = 0.0004 
         self.replay_freq = 1
-        self.startEpisode =2
+        self.startEpisode =0
         self.update_ep =5
         self.memory = Memory(1000000)
         self.optimizer_model = 'RMSProp'
@@ -140,54 +141,73 @@ class DQN:
             ind = np.array([i for i in range(self.batch_size)])
             targets_full[[ind], [actions]] = targets
             history = self.model.fit(states, targets_full, verbose=0, sample_weight = is_weight)
-            self.log_history.append(history.history['loss'])
+            global data  
+            data.loc[total_t,'loss']=history.history['loss'][-1]
+            data.loc[total_t,'accuracy']=history.history['accuracy'][-1]
             self.decrement_epsilon()
                  
 total_t =0
+score = 0
+columnslist = ['score','average_score','loss','accuracy','epsilon','episode']
+data =  pd.DataFrame(index=[0],columns=columnslist)     
+fig,ax=plt.subplots(3,2)
+fig.set_size_inches(15,10)   
+            
+shapes = [(0,0),(0,1), (1,0),(1,1), (2,0)]
+cnt = 0
+for t in np.reshape(ax,(-1)):    
+    t.set_title(columnslist[cnt])
+    cnt+=1
+g_plt =0    
+
+import _thread
 def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
 
-    def saveResults(agent): 
-                agent.epsilon_log.append(agent.epsilon)
-                agent.scores.append(score)
-                agent.episodes.append(e)
-                agent.average.append(sum(agent.scores) / len(agent.scores))
-                agent.log_data.append(score)
+    def saveResults(agent,e): 
+                global data   
+                data.loc[total_t, 'episode'] = e
+                data.loc[total_t, 'epsilon'] = agent.epsilon
+                data.loc[total_t,'score'] = score
+                data.loc[total_t, 'average_score'] = data['score'].values.sum()/data['score'].count()
 
-    def plotResults(agent):
-                t1 =[ ]
-                x1= []
-                for i in agent.log_history:
-                        i = i[0]
-                        t1.append(i*-1)
-                        x1.append(sum(t1)/len(agent.log_history))
-                PlotData("Episode_versus_score",["Episode","score" ],[agent.log_data,agent.average],["score","average"] )                      
-                PlotData("Iteration_versus_loss",["Iteration","loss" ],[t1,x1],["loss","average"])
-                t2 =[]
-                x2= []
-                for i in agent.epsilon_log:
-                        t2.append(i)
-                PlotData("Episode_versus_Epsilon",["episode","epsilon" ],[t2],["Epsilon"]) 
+    
+    def plotResults(s=False): 
+                plt.ion()                
+                global data ,fig,g_plt,ax      
+                data=data.fillna(0)
+                i=0 
+                for t in np.reshape(ax,(-1)):      
+                      t.plot(
+                            data.index,
+                            data[data.columns[i]],
+                            linestyle='solid') 
+                      i+=1;   
+                if s:
+                    plt.savefig(agent.savedir +".png");
+                plt.savefig(agent.model.name + ".png");
+                 
+                 
 
-                
-    #loss = []
+    global data            
+
     action_space = 6
     state_space =env.COLS * env.REM_STEP 
     DQN.REM_STEP = env.REM_STEP 
     agent = DQN(action_space, state_space,  model=model)
-    agent.env_name = "StarShip"
- 
-    
-    for e in range(lchk, episode):       
-      
+    agent.env_name = "StarShip" 
+
+    for e in range(lchk, episode):            
+
         state = env.reset()
         DQN.currEpisode = e
         funcs = [lambda: (np.reshape(state, (1, state_space ))),
                  lambda: (np.reshape(state, (1, len(state))))]
         state = funcs[0]()
+        global score
         score = 0
 
         for i in itertools.count():
-        
+            
             if i != 0:
                 if i % 98 == 0:
                     env.time_multipliyer *= 1.5
@@ -203,20 +223,18 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
             state = next_state        
             global total_t 
             if total_t % agent.update_ep==0:# and e>0 :
-                agent.replay()
-            average = 0
-              
+                agent.replay()        
+            saveResults(agent,e)
             #append to lists 
-            if done:     
-                
+            if done: 
                 if  env.save:
-                    saveModel(agent,score) 
-                    env.save = False 
-                if e %5==0:
-                    saveResults(agent) 
-                    plotResults(agent) 
+                    saveModel(agent,score)    
+                    plotResults(True)
+                    env.save = False  
+                else:
+                    plotResults()   
                 print("episode: {}/{}, score:  {:0.3f}, average: {}, epsilon: {} total_t: {}".format(e,
-                                                                            episode, score,  str(agent.average[-1])[:5],agent.epsilon,total_t))
+                                                                            episode, score,  data['average_score'].values[-1],agent.epsilon,total_t))
                 break
             
             total_t+=1
@@ -227,6 +245,7 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
                    
         if DQN.currEpisode % ch == 0:
              saveModel(agent,score) 
+            
 
 
      

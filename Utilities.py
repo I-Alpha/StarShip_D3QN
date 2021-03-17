@@ -34,18 +34,16 @@ from itertools import chain, combinations
 import csv
 #Save funcrions 
 
-lastCheckpoint =  50
-
-def saveModel(obj, score="n.a",checkpoint = 1):
+def saveModel(obj, data, score="0",checkpoint =0):
     
         #save model as .h5 with png and loss history.txt        
         mkdir_p(obj.savedir)
-        if obj.currEpisode < 5:
+        if obj.currEpisode < 1:
             return
         time_ = datetime.datetime.now
         time_h = time_().strftime("%h")      
         print("saving " + obj.model.name + "_epochs<" + str(obj.currEpisode) +">_"+str(int(score)) + "....")
-        name = obj.model.name+ "_epochs_{}_avg_{:0.2f}_".format(obj.currEpisode+lastCheckpoint-1, obj.average[-1])
+        name = obj.model.name+ "_epochs_{}_avg_{:.2f}_".format(obj.currEpisode, data['average_score'].values[-1])
         try:
             obj.model.save(obj.savedir+name+".h5", overwrite=True)
             print(name + " saved! ")
@@ -53,7 +51,7 @@ def saveModel(obj, score="n.a",checkpoint = 1):
             print(name + " not saved! ")
             return      
       
-        saveLog(obj, name+".txt", obj.savedir,autosavep=True)
+        # saveLog(obj, name+".txt", obj.savedir,autosavep=True)
        
    
 def saveLog(obj, name="lastRun.txt",  dir="", autosavep =False):

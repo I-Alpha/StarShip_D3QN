@@ -55,7 +55,7 @@ class DQN:
         self.gamma = .999
         self.batch_size =  64
         self.epsilon_min = .1
-        self.epsilon_decay = 0.999# 0.999998  (98 *4)
+        self.epsilon_decay = 0.999998# 0.999998  (98 *4)
         # self.burn_limit = .001
         self.learning_rate = 0.0001
         self.replay_freq = 1

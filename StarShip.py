@@ -2,7 +2,7 @@ import pygame
 from SpaceShipSprite import SpaceShipSprite
 import sys
 from Generators import ObstacleGenerator
-from pygame.locals import QUIT, KEYDOWN, K_ESCAPE, K_UP,K_DOWN, K_LEFT, K_RIGHT, K_SPACE, K_a, K_d,K_s
+from pygame.locals import QUIT, KEYDOWN, K_ESCAPE, K_UP,K_DOWN, K_LEFT, K_RIGHT, K_SPACE, K_a, K_d,K_s,K_p
 from Obstacle import Obstacle
 import numpy as np
 import copy 
@@ -51,7 +51,7 @@ class StarShipGame:
         self.timer1 = 0
         self.counter = 0
         self.action_space = 6
-
+        self.plot =False
     def vectorize_func(self,m):
         return m/255
     
@@ -188,7 +188,6 @@ class StarShipGame:
             #    obs_collection[label +"CY"]=Cy_offset
                obs_collection.append(w)
                obs_collection.append(h)
-
                count+=1
        
         # count=0
@@ -374,6 +373,8 @@ class StarShipGame:
                         sys.exit()      
                     if event.key == K_s:  
                         self.save=True
+                    if event.key == K_p:  
+                        self.plot=True
 
     def play(self):        
         self.clock.tick(self.FPS)      

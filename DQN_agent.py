@@ -33,7 +33,7 @@ from icecream import ic
 from Models import *
 from Utilities import *
 import itertools
-
+np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
 np.random.seed(5)
 env = StarShipGame(True)
 
@@ -47,7 +47,7 @@ class DQN:
     """ Implementation of deep q learning algorithm """
     currEpisode = 0 
     REM_STEP =0
-
+    startCheckPoint = 0
     def __init__(self, action_space, state_space, model=None):
         self.env_name = 0
         self.scores, self.episodes, self.average = [], [], []
@@ -55,30 +55,34 @@ class DQN:
         self.state_space = state_space
         self.epsilon =1
         self.epsilon_min=.1
-        self.gamma = .9999
-        self.batch_size = 128
-        self.epsilon_decay = 0.995# 0.999998  (98 *4)
-        self.epsilon_decay_episodes = 10000
+        self.gamma = .9994
+        self.batch_size = 64
+        self.epsilon_decay = 0.998# 0.999998  (98 *4)
+        self.epsilon_decay_episodes =   1000
         self.epsilon_log = []
         # self.burn_limit = .001
-        self.learning_rate = 0.0004 
+        self.learning_rate = 0.0025 
         self.replay_freq = 1
-        self.startEpisode =0
-        self.update_ep =5
-        self.memory = Memory(1000000)
-        self.optimizer_model = 'RMSProp'
+        self.start_episode =2
+        self.update_step =4
+        self.target_update_step =1000
+        self.memory = Memory(1000)
+        self.optimizer_model = 'RMSProp'#not in use
         self.log_data=[]
         self.log_history=[]
         self.epsilons = np.linspace(self.epsilon, self.epsilon_min, self.epsilon_decay_episodes)# The epsilon decay schedule
+        self.training_count  = 0 
         if model == None:
             self.model = self.build_model()  # dfault _model
-            # self.target_model = self.build_modelGPU()
-
+            self.target_model = self.build_model()
         else:
             self.model = model
-            # self.target_model =model
+            self.target_model = model
+        self.target_model.set_weights(self.model.get_weights())
         self.modelname = self.model._name
+        self.target_modelname = self.model._name+"_target"
         time_ = datetime.datetime.now
+
         self.savedir = "savedModels/"+self.model.name+"/"+time_().strftime("%m%d%h")+"/"
     
     def build_model(self):
@@ -97,23 +101,37 @@ class DQN:
                 #     return (random.choices(population=range(6),weights=(0.32,0.32,0.05,0.15,0.1,0.05),
                 # k=1)).pop()   # weighted exploration 
                 return random.randrange(self.action_space)            
-            act_values = self.model.predict(state)
+            act_values = self.model.predict(state, batch_size=1)
             return np.argmax(act_values[0])  # returns action (Exploitation)
 
     def decrement_epsilon(self):
         if self.epsilon > self.epsilon_min:
-            try : 
-                if DQN.currEpisode >= self.startEpisode: # Epsilon Update
-                   self.epsilon *= self.epsilon_decay
-            except:
-                self.epsilon = 0.1 
-                pass
-        else:
-            self.epsilon = 0.1
+            # if self.currEpisode  > self.epsilon_decay_episodes/2:
+                try : 
+                    if DQN.currEpisode >= DQN.startEpisode: # Epsilon Update
+                    #  self.epsilon *= self.epsilon_decay
+                       self.epsilon = self.epsilons[DQN.currEpisode - DQN.startCheckPoint]
+                except:
+                       self.epsilon *= self.epsilon_decay
+                       pass
+            # else:
+            #       self.epsilon *= self.epsilon_decay
+                finally:
+                    return 
+        self.epsilon = 0.1
+
+    def reset_target_network(self):
+        """
+        Updates the target DQN with the current weights of the main DQN.
+        """ 
+        self.target_model.set_weights(self.DQN.model.get_weights())
 
     def replay(self):
             if self.memory.tree.n_entries < self.batch_size:
                 return
+            
+            global data_history
+        # Train the model for one epoch 
             # batch, idxs, is_weight = (self.memory.sample(self.batch_size))
             # for i in range(self.batch_size):
             #     state, action, reward, next_state, done = batch[i]
@@ -136,75 +154,78 @@ class DQN:
             states = np.squeeze(states)
             next_states = np.squeeze(next_states)
             targets = (rewards*1) + self.gamma * \
-                (np.amax(self.model.predict_on_batch(next_states), axis=1))*(1-dones)
-            targets_full = self.model.predict_on_batch(states)
+                (np.amax(self.target_model.predict(next_states), axis=1))*(1-dones)
+            targets_full = self.model.predict(states)
             ind = np.array([i for i in range(self.batch_size)])
             targets_full[[ind], [actions]] = targets
-            history = self.model.fit(states, targets_full, verbose=0, sample_weight = is_weight)
-            global data  
-            data.loc[total_t,'loss']=history.history['loss'][-1]
-            data.loc[total_t,'accuracy']=history.history['accuracy'][-1]
-            self.decrement_epsilon()
+            history = self.model.fit(states, targets_full, verbose=0, sample_weight = is_weight, batch_size=self.batch_size) 
+            temp = {'loss':history.history['loss'][0], 'accuracy': history.history['accuracy'][0], 'mean_absolute_error': history.history['mean_absolute_error'][0]}                   
+            data_history=data_history.append(temp,ignore_index=True,sort=False)
+            self.training_count +=1
                  
+
 total_t =0
 score = 0
-columnslist = ['score','average_score','loss','accuracy','epsilon','episode']
-data =  pd.DataFrame(index=[0],columns=columnslist)     
-fig,ax=plt.subplots(3,2)
-fig.set_size_inches(15,10)   
-            
-shapes = [(0,0),(0,1), (1,0),(1,1), (2,0)]
-cnt = 0
-for t in np.reshape(ax,(-1)):    
-    t.set_title(columnslist[cnt])
-    cnt+=1
-g_plt =0    
+columnslist = ['score','average_score','epsilon','episode','loss','accuracy']
+data =  pd.DataFrame(columns= ['score','average_score', 'epsilon' ])    
+data_history =  pd.DataFrame(columns=['loss','accuracy','mean_absolute_error'])    
+ 
 
 import _thread
 def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
 
     def saveResults(agent,e): 
-                global data   
-                data.loc[total_t, 'episode'] = e
+                global data  
                 data.loc[total_t, 'epsilon'] = agent.epsilon
                 data.loc[total_t,'score'] = score
-                data.loc[total_t, 'average_score'] = data['score'].values.sum()/data['score'].count()
+                data.loc[total_t,'average_score'] =  data['score'].mean()
 
     
-    def plotResults(s=False): 
-                plt.ion()                
-                global data ,fig,g_plt,ax      
-                data=data.fillna(0)
-                i=0 
-                for t in np.reshape(ax,(-1)):      
-                      t.plot(
-                            data.index,
-                            data[data.columns[i]],
-                            linestyle='solid') 
-                      i+=1;   
+    def plotResults(s=False,p=True):     
+                global data , fig, g_plt, axes, data_history 
+                t=0 
+                fig,axes=plt.subplots(3,2)
+                axes=np.reshape(axes,(-1))
+                fig.set_size_inches(15,10)   
+                t1=0
+                for i in data.columns:
+                    axes[t1].set_title(i)  
+                    t1+=1
+                for i in data.columns:
+                    data[i].plot( ax=axes[t])                     
+                    t+=1               
+                if len(data_history.index.values) > 0:
+                    for x in data_history.columns:
+                        axes[t1].set_title(x) 
+                        t1+=1  
+                    for x in data_history.columns:
+                        data_history[x].plot( ax=axes[t]) 
+                        t+=1
                 if s:
                     plt.savefig(agent.savedir +".png");
-                plt.savefig(agent.model.name + ".png");
-                 
+                if p:
+                    plt.savefig(agent.model.name + ".png");  
+
+                plt.close()
                  
 
-    global data            
+    global data, data_history    
 
     action_space = 6
     state_space =env.COLS * env.REM_STEP 
     DQN.REM_STEP = env.REM_STEP 
     agent = DQN(action_space, state_space,  model=model)
     agent.env_name = "StarShip" 
-
-    for e in range(lchk, episode):            
-
-        state = env.reset()
+    global score
+    global total_t 
+    for e in range(lchk-1, episode):            
+  
+        score = 0
         DQN.currEpisode = e
+        state = env.reset()
         funcs = [lambda: (np.reshape(state, (1, state_space ))),
                  lambda: (np.reshape(state, (1, len(state))))]
-        state = funcs[0]()
-        global score
-        score = 0
+        state = funcs[0]()      
 
         for i in itertools.count():
             
@@ -215,43 +236,46 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
            
             action = agent.act(state)
             reward, next_state, done = env.step(action) 
-            score += reward
             funcs = [lambda: (np.reshape(next_state, (1, state_space ))), lambda: (
                 np.reshape(next_state, (1, len(next_state))))]
             next_state = funcs[0]()
-            agent.memorize(state, action, reward, next_state, done)
-            state = next_state        
-            global total_t 
-            if total_t % agent.update_ep==0:# and e>0 :
-                agent.replay()        
-            saveResults(agent,e)
-            #append to lists 
-            if done: 
-                if  env.save:
-                    saveModel(agent,score)    
-                    plotResults(True)
-                    env.save = False  
-                else:
-                    plotResults()   
-                print("episode: {}/{}, score:  {:0.3f}, average: {}, epsilon: {} total_t: {}".format(e,
-                                                                            episode, score,  data['average_score'].values[-1],agent.epsilon,total_t))
-                break
-            
+            clipped_reward = np.clip(reward, -1, 1) 
+            agent.memorize(state, action, clipped_reward, next_state, done)
+            state = next_state      
+            score += reward
+          
+            #appe6nd to lists 
+            if total_t%agent.update_step== 0 and e >= agent.start_episode:
+                    agent.replay()
+                    if agent.training_count % agent.target_update_step == 0 and agent.training_count >= agent.target_update_step:
+                        agent.reset_target_network()
+            if done:
+                    if total_t%agent.update_step!=0:
+                       agent.replay()  
+                    saveResults(agent,e)
+                    if env.save:
+                        saveModel(obj=agent,data=data,score=score,checkpoint= lchk)      
+                        plotResults(True)   
+                        env.save = False  
+                    if env.plot:
+                        plotResults()
+                        env.plot = False                    
+                    print("episode: {}/{}, score:  {:.3f}, average: {:.3f}, epsilon: {:.3f} total_t: {}".format(e,
+                                                                                episode, data['score'].values[-1],  data['average_score'].values[-1],agent.epsilon,total_t))
+                    agent.decrement_epsilon()
+                    break          
             total_t+=1
-
-            # # if e == 0:           
-            # if e == agent.startEpisode:   
-            #     agent.replay() 
                    
         if DQN.currEpisode % ch == 0:
-             saveModel(agent,score) 
+                saveModel(obj=agent,data=data,score=score,checkpoint= 0) 
+                plotResults(True) 
             
 
 
      
 
 
-    def test(self):
+    def test(episode,  graphics=True, ch=300,  lchk=0, model=None,):       
         for e in range(self.EPISODES):
             state = env.reset()
             done = False

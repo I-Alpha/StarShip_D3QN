@@ -12,7 +12,7 @@ import numpy as np
 from keras import Sequential
 from collections import deque
 from tensorflow.keras.layers import Bidirectional, LSTM
-from keras.layers import Dense, LayerNormalization, LeakyReLU, DepthwiseConv2D,Embedding ,  Lambda,  Add, Average, TimeDistributed, Conv1D, Conv2D, Subtract, Activation, LocallyConnected2D, LocallyConnected1D, Reshape, concatenate, Concatenate, Flatten, Input, Dropout, MaxPooling1D,  MaxPooling2D
+from keras.layers import Dense, LayerNormalization, Permute,LeakyReLU, DepthwiseConv2D,Embedding ,  Lambda,  Add, Average, TimeDistributed, Conv1D, Conv2D, Subtract, Activation, LocallyConnected2D, LocallyConnected1D, Reshape, concatenate, Concatenate, Flatten, Input, Dropout, MaxPooling1D,  MaxPooling2D
 import matplotlib.pyplot as plt
 from keras.optimizers import Adam
 from StarShip import StarShipGame
@@ -31,9 +31,9 @@ import plotly.graph_objs as go
 import plotly.figure_factory as FF
 from icecream import ic
 from keras.layers.advanced_activations import PReLU,LeakyReLU
+ 
 
-
-HUBER_LOSS_DELTA = 1 
+HUBER_LOSS_DELTA = 1.2
 
 
 def huber_loss(y_true, y_predict):
@@ -278,55 +278,38 @@ def FCTime_distributed_model(self, action_space=6, dueling=True):
         X_reshaped = Reshape(input_reshape)(X_input)
 
 
+        slice2 = tf.slice(X_reshaped,[0,0,0],[-1,2,10]) 
+        slice2 = Reshape((2,-1))(slice2)
+        # slice2 = Permute((2,1))(slice2)
         #normailsation fort each dimension 
         normlayer_1 = LayerNormalization( 
-                axis=2,trainable=True,epsilon =0.001,center=True,
+                axis=2,trainable=True,epsilon =0.0001,center=True,
                 scale=True,
                 beta_initializer="zeros",
                 gamma_initializer="ones") 
         normlayer_2 = LayerNormalization( 
-                axis=1,trainable=True,epsilon =0.001,center=True,
+                axis=1,trainable=True,epsilon =0.0001,center=True,
                 scale=True,
                 beta_initializer="zeros",
                 gamma_initializer="ones")  
 
-        slice2 = tf.slice(X_reshaped,[0,0,0],[-1,2,10]) 
-        slice2 = Reshape((2,-1))(slice2)
 
         TD1 = (normlayer_1)(slice2)
         # TD1 = (normlayer_2)(TD1)
-        TD1 = TimeDistributed(Dense(16, activation = "relu", kernel_initializer=y_init, use_bias=True))(TD1) 
+        # TD1 = TimeDistributed(Dense(32, activation = "tanh",bias_initializer=const_init,kernel_initializer=y_init, use_bias=True))(TD1) 
         # TD1 = Reshape((2,-1))(TD1)        
         TD1 = Flatten()(TD1) 
-        TD1 = Dense(64, activation = "relu", kernel_initializer=y_init, use_bias=True)(TD1) 
-        TD1 = Dense(64, activation = "relu", kernel_initializer=y_init,use_bias=True )(TD1) 
+        TD1 = Dense(64, activation = "tanh", kernel_initializer=y_init, bias_initializer=const_init, use_bias=True)(TD1) 
+        TD1 = Dense(32, activation = "tanh", kernel_initializer=y_init,bias_initializer=const_init,use_bias=True )(TD1) 
+        TD1 = Dense(16, activation = "tanh", kernel_initializer=y_init,bias_initializer=const_init,use_bias=True )(TD1)
         
 
 
-        normlayer_1 = LayerNormalization( 
-                axis=2,trainable=True,epsilon =0.1,center=False,
-                scale=True,
-                beta_initializer="zeros",
-                gamma_initializer="ones") 
-        normlayer_2 = LayerNormalization( 
-                axis=1,trainable=True,epsilon =0.0001,center=False,
-                scale=True,
-                beta_initializer="zeros",
-                gamma_initializer="ones")
         slice3 = tf.slice(X_reshaped,[0,0,10],[-1,2,4]) 
         slice3 = Reshape((2,-1))(slice3)
-
-        TD2 = (normlayer_1)(slice3)
-        # TD2 = (normlayer_2)(TD2)
-        TD2 = TimeDistributed(Dense(16, activation ="relu", kernel_initializer=y_init,use_bias=True))(TD2) 
-        # TD2 = Reshape((2,-1))(TD2)         
-        TD2 = Flatten()(TD2)     
-        TD2 = Dense(64, activation ="relu" ,kernel_initializer=y_init,use_bias=True )(TD2) 
-        TD2 = Dense(64, activation ="relu" ,kernel_initializer=y_init ,use_bias=True)(TD2) 
-        # 
-
+        # slice3 = Permute((2,1))(slice3)
         normlayer_1 = LayerNormalization( 
-                axis=2,trainable=True,epsilon =0.1,center=True,
+                axis=2,trainable=True,epsilon =0.0001,center=True,
                 scale=True,
                 beta_initializer="zeros",
                 gamma_initializer="ones") 
@@ -335,23 +318,46 @@ def FCTime_distributed_model(self, action_space=6, dueling=True):
                 scale=True,
                 beta_initializer="zeros",
                 gamma_initializer="ones")
+        TD2 = (normlayer_1)(slice3)
+        # TD2 = (normlayer_2)(TD2)
+        # TD2 = TimeDistributed(Dense(32, activation =PReLU(), bias_initializer=const_init,kernel_initializer=y_init,use_bias=True))(TD2) 
+        # TD2 = Reshape((2,-1))(TD2)         
+        TD2 = Flatten()(TD2)     
+        TD2 = Dense(64, activation = LeakyReLU(.1), kernel_initializer=y_init,bias_initializer=const_init,use_bias=True )(TD2) 
+        TD2 = Dense(32, activation = LeakyReLU(.1) ,kernel_initializer=y_init ,bias_initializer=const_init,use_bias=True)(TD2) 
+        TD2 = Dense(16, activation = LeakyReLU(.1), kernel_initializer=y_init,bias_initializer=const_init,use_bias=True )(TD2)
+        # 
+
         slice4 = tf.slice(X_reshaped,[0,0,14],[-1,2,25])
         slice4 = Reshape((2,-1))(slice4)
+        # slice4 = Permute((2,1))(slice4)
 
+        normlayer_1 = LayerNormalization( 
+                axis=2,trainable=True,epsilon =0.0001,center=True,
+                scale=True,
+                beta_initializer="zeros",
+                gamma_initializer="ones") 
+        normlayer_2 = LayerNormalization( 
+                axis=1,trainable=True,epsilon =0.0001,center=True,
+                scale=True,
+                beta_initializer="zeros",
+                gamma_initializer="ones")
         TD3 = (normlayer_1)(slice4)
         # TD3 = (normlayer_2)(TD3)
-        TD3 = TimeDistributed(Dense(16, activation ="relu", kernel_initializer=y_init,use_bias=True ))(TD3) 
+        # TD3 = TimeDistributed(Dense(32, activation =PReLU(), kernel_initializer=y_init,bias_initializer=const_init,use_bias=True))(TD3) 
         # TD3 = Reshape((2,-1))(TD3)
         TD3 = Flatten()(TD3) 
-        TD3 = Dense(64, activation ="relu",kernel_initializer=y_init,use_bias=True )(TD3) 
-        TD3 = Dense(64, activation ="relu",kernel_initializer=y_init, use_bias=True)(TD3) 
+        TD3 = Dense(64, activation = LeakyReLU(.1),kernel_initializer=y_init,bias_initializer=const_init,use_bias=True )(TD3) 
+        TD3 = Dense(32, activation = LeakyReLU(.1),kernel_initializer=y_init,bias_initializer=const_init, use_bias=True)(TD3) 
+        TD3 = Dense(16, activation = LeakyReLU(.1), kernel_initializer=y_init,bias_initializer=const_init,use_bias=True )(TD3)
         # 
   
         slice5 = tf.slice(X_reshaped,[0,0,39],[-1,2,-1])
-        slice5 = Reshape((2,-1))(slice5)
+        slice5 = Reshape((2,-1))(slice5)        
+        # slice5 = Permute((2,1))(slice5)
 
         normlayer_1 = LayerNormalization( 
-                axis=2,trainable=True,epsilon =0.1,center=True,
+                axis=2,trainable=True,epsilon =0.0001,center=True,
                 scale=True,
                 beta_initializer="zeros",
                 gamma_initializer="ones") 
@@ -362,20 +368,21 @@ def FCTime_distributed_model(self, action_space=6, dueling=True):
                 gamma_initializer="ones")
 
         TD4 = (normlayer_1)(slice5)
-        TD4 = (normlayer_2)(TD4)
-        TD4 = TimeDistributed(Dense(8, activation = "relu" ,kernel_initializer=y_init,use_bias=True))(TD4) 
+        # TD4 = (normlayer_2)(TD4)
+        # TD4 = TimeDistributed(Dense(32, activation = PReLU() ,kernel_initializer=y_init,bias_initializer=const_init,use_bias=True))(TD4) 
         # TD4 = Reshape((2,-1))(TD4)        "relu", 
         TD4 = Flatten()(TD4) 
-        TD4 = Dense(64, activation ="relu", kernel_initializer=y_init,use_bias=True )(TD4)
-        TD4 = Dense(64, activation ="relu", kernel_initializer=y_init,use_bias=True )(TD4)  
+        TD4 = Dense(64, activation = LeakyReLU(.1), kernel_initializer=y_init,bias_initializer=const_init,use_bias=True )(TD4)
+        TD4 = Dense(32, activation = LeakyReLU(.1), kernel_initializer=y_init,bias_initializer=const_init,use_bias=True )(TD4)  
+        TD4 = Dense(16, activation = LeakyReLU(.1), kernel_initializer=y_init,bias_initializer=const_init,use_bias=True )(TD4)
         # 
         # R1=LSTM(64)(X_reshaped)# cnn1 = Conv1D(filters=64,  kernel_size=(2),activation =LeakyReLU(.4),kernel_initializer=y_init,use_bias=True)(cnn1)          
         
-        concatenated = concatenate([TD4,TD3,TD2,TD1])
+        concatenated = Concatenate()([TD4,TD3,TD2,TD1])
         cnn1 = Flatten()(concatenated) 
-        cnn1 = Dense(256,kernel_initializer=y_init, activation ="relu",use_bias=True )(cnn1)     
-        cnn1 = Dense(256,kernel_initializer=y_init, activation =PReLU(),use_bias=True )(cnn1)
-        cnn1 = Dense(128,kernel_initializer=y_init, activation ="relu",use_bias=True )(cnn1)     
+        cnn1 = Dense(512,kernel_initializer=y_init, activation ="relu",bias_initializer=const_init,use_bias=True )(cnn1)
+        cnn1 = Dense(256,kernel_initializer=y_init, activation ="relu",bias_initializer=const_init,use_bias=True )(cnn1)   
+        cnn1 = Dense(256,kernel_initializer=y_init, activation ="relu",bias_initializer=const_init,use_bias=True )(cnn1)     
         X= cnn1
  
                          
@@ -392,12 +399,12 @@ def FCTime_distributed_model(self, action_space=6, dueling=True):
         # # Hidden layer with 64 nodes
         # X = Dense(64, activation="relu", kernel_initializer=truncatedn_init, bias_initializer=const_init)(X)
         if dueling:
-            state_value = Dense(1, kernel_initializer=y_init, activation="softmax")(X)
+            state_value = Dense(1, kernel_initializer=y_init,bias_initializer=const_init,use_bias=True)(X)
             state_value = Lambda(lambda s: K.expand_dims(
                 s[:, 0], -1), output_shape=(action_space,))(state_value)
 
             action_advantage = Dense(
-                action_space, kernel_initializer=y_init, activation="linear" )(X)
+                action_space, kernel_initializer=y_init, bias_initializer=const_init,use_bias=True)(X)
             action_advantage = Lambda(lambda a: a[:, :] - K.mean(
                 a[:, :], keepdims=True), output_shape=(action_space,))(action_advantage)
 
@@ -407,9 +414,9 @@ def FCTime_distributed_model(self, action_space=6, dueling=True):
             X = Dense(action_space, activation="relu",
                       kernel_initializer='he_uniform')(X)
 
-        model = Model(inputs=X_input, outputs=X, name='Hydra-1')
-        model.compile(loss=huber_loss, optimizer=Adam(
-            lr=self.learning_rate),  metrics=["accuracy"])
+        model = Model(inputs=X_input, outputs=X, name='Hydra-4')
+        model.compile(loss=tf.keras.losses.Huber(delta=30), metrics=['mean_absolute_error','accuracy'] ,optimizer=Adam(
+            lr=self.learning_rate))
 
         # model.compile(loss="mean_squared_error", optimizer=Adam(lr=0.00025,epsilon=0.01), metrics=["accuracy"])
         model.summary()

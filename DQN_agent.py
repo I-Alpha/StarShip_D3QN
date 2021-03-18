@@ -58,20 +58,21 @@ class DQN:
         self.gamma = .9994
         self.batch_size = 64
         self.epsilon_decay = 0.998# 0.999998  (98 *4)
-        self.epsilon_decay_episodes =   1000
+        self.epsilon_decay_episodes =1000
         self.epsilon_log = []
         # self.burn_limit = .001
-        self.learning_rate = 0.0025 
+        self.learning_rate = 0.001 
         self.replay_freq = 1
-        self.start_episode =2
+        self.start_episode =0
+        self.tau =.1
         self.update_step =4
-        self.target_update_step =1000
-        self.memory = Memory(1000)
+        self.target_update_step = 250       
+        self.t_count =0
+        self.memory = Memory(1000000)
         self.optimizer_model = 'RMSProp'#not in use
         self.log_data=[]
         self.log_history=[]
         self.epsilons = np.linspace(self.epsilon, self.epsilon_min, self.epsilon_decay_episodes)# The epsilon decay schedule
-        self.training_count  = 0 
         if model == None:
             self.model = self.build_model()  # dfault _model
             self.target_model = self.build_model()
@@ -86,14 +87,25 @@ class DQN:
         self.savedir = "savedModels/"+self.model.name+"/"+time_().strftime("%m%d%h")+"/"
     
     def build_model(self):
-              return FCTime_distributed_model(self)
+              return build_1CNNBase(self)
 
     def memorize(self, state, action, reward, next_state, done):
         # Calculate TD-Error for Prioritized Experience Replay
-            td_error = reward + self.gamma * np.argmax(self.model.predict(next_state)[0]) - np.argmax(
-                self.model.predict(state)[0])
-            # Save TD-Error into Memory
-            self.memory.add(td_error, (state, action, reward, next_state, done))
+            # td_error = reward + self.gamma * np.argmax(self.model.predict(next_state)[0]) - np.argmax(
+            #     self.target.predict(state)[0])
+            # # Save TD-Error into Memory
+            # self.memory.add(td_error, (state, action, reward, next_state, done))
+            target = self.model.predict(state,batch_size=1)
+            old_val = target[0][action]
+            target_val = self.target_model.predict(next_state,batch_size=1).data
+            if done:
+                target[0][action] = reward
+            else:
+                target[0][action] = reward + self.gamma * np.argmax(target_val)
+
+            error = abs(old_val - target[0][action])
+
+            self.memory.add(error, (state, action, reward, next_state, done))
 
     def act(self, state):
             if np.random.rand() <= self.epsilon:  # Exploration
@@ -103,14 +115,16 @@ class DQN:
                 return random.randrange(self.action_space)            
             act_values = self.model.predict(state, batch_size=1)
             return np.argmax(act_values[0])  # returns action (Exploitation)
-
+    temp= 0
     def decrement_epsilon(self):
+        if self.t_count==0:
+            temp = total_t
         if self.epsilon > self.epsilon_min:
             # if self.currEpisode  > self.epsilon_decay_episodes/2:
                 try : 
-                    if DQN.currEpisode >= DQN.startEpisode: # Epsilon Update
+                    if DQN.currEpisode >= self.start_episode: # Epsilon Update
                     #  self.epsilon *= self.epsilon_decay
-                       self.epsilon = self.epsilons[DQN.currEpisode - DQN.startCheckPoint]
+                       self.epsilon = self.epsilons[DQN.currEpisode- self.start_episode-0]
                 except:
                        self.epsilon *= self.epsilon_decay
                        pass
@@ -120,15 +134,24 @@ class DQN:
                     return 
         self.epsilon = 0.1
 
+    def update_target_model(self):
+        q_network_theta = self.model.get_weights()
+        target_model_theta = self.target_model.get_weights()
+        counter = 0
+        for q_weight, target_weight in zip(q_network_theta,target_model_theta):
+            target_weight = target_weight * (1-self.tau ) + q_weight * self.tau 
+            target_model_theta[counter] = target_weight
+            counter += 1
+        self.target_model.set_weights(target_model_theta)
+
     def reset_target_network(self):
         """
         Updates the target DQN with the current weights of the main DQN.
         """ 
-        self.target_model.set_weights(self.DQN.model.get_weights())
+        self.target_model.set_weights(self.model.get_weights())
+
 
     def replay(self):
-            if self.memory.tree.n_entries < self.batch_size:
-                return
             
             global data_history
         # Train the model for one epoch 
@@ -153,16 +176,15 @@ class DQN:
             dones = np.array([i[4] for i in minibatch])
             states = np.squeeze(states)
             next_states = np.squeeze(next_states)
-            targets = (rewards*1) + self.gamma * \
-                (np.amax(self.target_model.predict(next_states), axis=1))*(1-dones)
-            targets_full = self.model.predict(states)
+            targets = (rewards*1) + self.gamma * (np.amax(self.target_model.predict_on_batch(next_states), axis=1))*(1-dones)
+            targets_full = self.model.predict_on_batch(states)
             ind = np.array([i for i in range(self.batch_size)])
             targets_full[[ind], [actions]] = targets
-            history = self.model.fit(states, targets_full, verbose=0, sample_weight = is_weight, batch_size=self.batch_size) 
+            history = self.model.fit(states, targets_full, verbose=0,sample_weight=is_weight) 
             temp = {'loss':history.history['loss'][0], 'accuracy': history.history['accuracy'][0], 'mean_absolute_error': history.history['mean_absolute_error'][0]}                   
-            data_history=data_history.append(temp,ignore_index=True,sort=False)
-            self.training_count +=1
-                 
+            data_history=data_history.append(temp,ignore_index=True,sort=False)          
+           
+            self.t_count +=1  
 
 total_t =0
 score = 0
@@ -218,7 +240,7 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
     agent.env_name = "StarShip" 
     global score
     global total_t 
-    for e in range(lchk-1, episode):            
+    for e in range(lchk, episode):            
   
         score = 0
         DQN.currEpisode = e
@@ -238,20 +260,18 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
             reward, next_state, done = env.step(action) 
             funcs = [lambda: (np.reshape(next_state, (1, state_space ))), lambda: (
                 np.reshape(next_state, (1, len(next_state))))]
-            next_state = funcs[0]()
-            clipped_reward = np.clip(reward, -1, 1) 
-            agent.memorize(state, action, clipped_reward, next_state, done)
+            next_state = funcs[0]() 
+            agent.memorize(state, action, reward, next_state, done)
             state = next_state      
             score += reward
           
             #appe6nd to lists 
-            if total_t%agent.update_step== 0 and e >= agent.start_episode:
-                    agent.replay()
-                    if agent.training_count % agent.target_update_step == 0 and agent.training_count >= agent.target_update_step:
+            if total_t%agent.update_step== 0 and e - lchk >= agent.start_episode:
+                    agent.replay()                      
+                    if agent.t_count%agent.target_update_step ==0 and agent.t_count >= agent.target_update_step:
                         agent.reset_target_network()
-            if done:
-                    if total_t%agent.update_step!=0:
-                       agent.replay()  
+                        print("Target Network updated!")         
+            if done:               
                     saveResults(agent,e)
                     if env.save:
                         saveModel(obj=agent,data=data,score=score,checkpoint= lchk)      
@@ -262,9 +282,10 @@ def train_dqn(episode,  graphics=True, ch=300,  lchk=0, model=None, ):
                         env.plot = False                    
                     print("episode: {}/{}, score:  {:.3f}, average: {:.3f}, epsilon: {:.3f} total_t: {}".format(e,
                                                                                 episode, data['score'].values[-1],  data['average_score'].values[-1],agent.epsilon,total_t))
-                    agent.decrement_epsilon()
+        
                     break          
             total_t+=1
+            agent.decrement_epsilon()                    
                    
         if DQN.currEpisode % ch == 0:
                 saveModel(obj=agent,data=data,score=score,checkpoint= 0) 

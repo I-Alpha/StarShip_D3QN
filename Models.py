@@ -37,7 +37,7 @@ tf.config.LogicalDeviceConfiguration(
 )
 
 
-HUBER_LOSS_DELTA = 1.2
+HUBER_LOSS_DELTA = 1.36
 
 
 def huber_loss(y_true, y_predict):
@@ -58,33 +58,42 @@ def gelu(x):
 
 def build_1CNNBase(self, action_space=6, dueling=True):
         self.network_size = 256
-        X_input = Input(shape=(self.REM_STEP*99) )
+        X_input = Input(shape=(self.REM_STEP*90) )
         # X_input = Input(shape=(self.REM_STEP*7,))
-        input_reshape=(self.REM_STEP,99)
+        input_reshape=(self.REM_STEP,90)
         X = X_input
         truncatedn_init = initializers.TruncatedNormal(0, 1e-2)
-        x_init = "he_uniform"
+        x_init = initializers.GlorotNormal()
         y_init = initializers.glorot_uniform()
         const_init = initializers.constant(1e-2)        
         X_reshaped = Reshape(input_reshape)(X_input)
 
         # slice2 = Permute((2,1))(slice2)
-        #normailsation fort each dimension 
+        #normailsation for each layer
+        normlayer_0 = LayerNormalization( 
+                axis=-1,trainable=True,epsilon =0.0001,center=False,
+                scale=True,
+                beta_initializer="zeros",
+                gamma_initializer="ones" )  
         normlayer_1 = LayerNormalization( 
-                axis=1,trainable=True,epsilon =0.001,center=True,
+                axis=-1,trainable=True,epsilon =0.001,center=True,
                 scale=True,
                 beta_initializer="zeros",
                 gamma_initializer="ones") 
         normlayer_2 = LayerNormalization( 
-                axis=2,trainable=True,epsilon =0.001,center=True,
+                axis=-1,trainable=True,epsilon =0.001,center=True,
+                scale=True,
+                beta_initializer="zeros",
+                gamma_initializer="ones")  
+        normlayer_3 = LayerNormalization( 
+                axis=-1,trainable=True,epsilon =0.001,center=True,
                 scale=True,
                 beta_initializer="zeros",
                 gamma_initializer="ones")  
 
-        X = normlayer_2(X_reshaped)
-        cnn1 = TimeDistributed(Dense(64, activation =PReLU(), kernel_initializer='he_uniform',))(X) 
-        cnn1 = TimeDistributed(Dense(64, activation =PReLU(),kernel_initializer='he_uniform',))(cnn1) 
-        cnn1 = Flatten()(cnn1)
+        X = normlayer_0(X_reshaped)
+        # X = TimeDistributed(Dense(128, activation ="relu", kernel_initializer='he_uniform',))(X)
+        # 
      
 
         # cnn2 = TimeDistributed(Dense(64, kernel_initializer='he_uniform',))(X) 
@@ -99,19 +108,22 @@ def build_1CNNBase(self, action_space=6, dueling=True):
         # cnn2 = Flatten()(cnn2)
 
 
-        X = Dense(self.network_size*2, 
-                  kernel_initializer='he_uniform',activation ="relu")(cnn1) 
- 
-        X = Dense(self.network_size, 
-                  kernel_initializer='he_uniform',activation ="relu")(X)
+        # X = Dense(32, 
+        #           kernel_initializer='he_uniform',activation ="relu")(X) 
+        # X = normlayer_3(X)
+        # X = Dense(64, 
+        #           kernel_initializer='he_uniform',activation =LeakyReLU(.3))(X)
+        X = Flatten()(X)
+        X = Dense(512, activation =LeakyReLU(.1),  kernel_initializer=x_init)(X)
+        X = Dense(256, activation =LeakyReLU(.1), kernel_initializer=x_init)(X)
         if dueling:
             state_value = Dense(
-                1, kernel_initializer='he_uniform' )(X)
+                1, kernel_initializer=x_init , activation ="softmax")(X)
             state_value = Lambda(lambda s: K.expand_dims(
                 s[:, 0], -1), output_shape=(action_space,))(state_value)
 
             action_advantage = Dense(
-                action_space, kernel_initializer='he_uniform') (X)
+                action_space, kernel_initializer=x_init, activation = "linear") (X)
             action_advantage = Lambda(lambda a: a[:, :] - K.mean(
                 a[:, :], keepdims=True), output_shape=(action_space,))(action_advantage)
 
@@ -122,7 +134,7 @@ def build_1CNNBase(self, action_space=6, dueling=True):
                       kernel_initializer='he_uniform')(X)
 
         model = Model(inputs=X_input, outputs=X, name='build_TMaxpoolin_3')
-        model.compile(loss=tf.keras.losses.Huber(delta=3), metrics=['mean_absolute_error','accuracy'] ,optimizer=Adam(
+        model.compile(loss=tf.keras.losses.Huber(delta=2), metrics=['mean_absolute_error','accuracy'] ,optimizer=Adam(
             lr=self.learning_rate))
 
 
@@ -132,63 +144,85 @@ def build_1CNNBase(self, action_space=6, dueling=True):
 
 def build_modelPar1(self, dueling=True):
         self.network_size = 256
-        X_input = Input(shape=(self.REM_STEP*54,))
-        input_reshape=(1,4,54)
-        x = X_input
+        X_input = Input(shape=(self.REM_STEP*46))
+        # X_input = Input(shape=(self.REM_STEP*7,))
+        input_reshape=(self.REM_STEP,1,46)
+        X = X_input
         truncatedn_init = initializers.TruncatedNormal(0, 1e-2)
-        x_init = "he_uniform"
+        x_init = initializers.GlorotNormal()
         y_init = initializers.glorot_uniform()
+        const_init = initializers.constant(1e-2)      
+
+        X_reshaped = Reshape((2,-1))(X_input)
+        
+        normlayer_0 = LayerNormalization( 
+                        axis=-1,trainable=True,epsilon =0.0001,center=True,
+                        scale=True,
+                        beta_initializer="zeros",)
+
+        
+        normlayer_1 = LayerNormalization( 
+                        axis=-1,trainable=True,epsilon =0.0001,center=True,
+                        scale=True,
+                        beta_initializer="zeros",gamma_initializer="ones")  
+
+        
+        normlayer_2= LayerNormalization( 
+                        axis=-1,trainable=True,epsilon =0.0001,center=True,
+                        scale=True,
+                        beta_initializer="zeros", gamma_initializer="ones")  
+
 
         const_init = initializers.constant(1e-2)
         
-        v = Reshape((4,-1))(x)
-        t = Reshape(input_reshape)(x)
-        cnn2 = (LocallyConnected2D(filters=64,  kernel_initializer='he_uniform', kernel_size=(1,4), strides =(1,1), padding = "valid"))(t)
-        cnn2 = gaussian(cnn2)
-        cnn2 = Flatten()(cnn2)
-        cnn2 = Dense(128, activation="relu",kernel_initializer=x_init)(cnn2)         
+        t = Reshape(input_reshape)(X)
+        cnn2 = (Conv2D(filters=32,  activation = "relu", kernel_initializer=x_init, kernel_size=(1), strides =(2,1), padding = "valid"))(t) 
+        cnn2 = normlayer_0(cnn2)
+        cnn2 = Reshape((1,-1,))(cnn2)
+        cnn2 = (LocallyConnected1D(filters=64,  activation = "relu",kernel_initializer=x_init, kernel_size=(1), strides =(1), padding = "valid"))(cnn2)  
+        # cnn2 = Flatten()(cnn2)    
  
-
-        cnn1 = TimeDistributed(Dense(64,kernel_initializer='he_uniform',))(v)       
-        cnn1 = LeakyReLU(.3)(cnn1)
-        cnn1 = TimeDistributed(Dense(64, activation="relu", kernel_initializer='he_uniform',))(cnn1)       
-        cnn1 = Flatten()(cnn1)
-        cnn1 = (Dense(128, activation="relu", kernel_initializer='he_uniform',))(cnn1)       
-        
+    
+        cnn1 = TimeDistributed(Dense(64, activation = "tanh" , kernel_initializer=x_init,))(X_reshaped)
+        cnn1 = normlayer_1(cnn1)        
+        cnn1 = TimeDistributed(Dense(32, activation="tanh", kernel_initializer=x_init,))(cnn1)       
+        # cnn1 = Flatten()(cnn1) 
+        cnn1 = Reshape((1,-1,))(cnn1)
         
         conc = concatenate([cnn1,cnn2])
-        w = Dense(512, activation="relu",kernel_initializer=x_init)(conc)
+        f = Flatten()(conc)
+        w = Dense(512, activation="relu",kernel_initializer=x_init)(f)
         w = Dense(256, activation="relu",kernel_initializer=x_init)(w)        
 
-        state_value = Dense(1, kernel_initializer='he_uniform')(w)
+        state_value = Dense(1, kernel_initializer=x_init)(w)
         state_value = Lambda(lambda s: K.expand_dims(
         s[:, 0], -1), output_shape=(self.action_space,))(state_value)
 
         action_advantage = Dense(
-        self.action_space, activation='linear', kernel_initializer='he_uniform')(w)
+        self.action_space, activation='linear', kernel_initializer=x_init)(w)
         action_advantage = Lambda(lambda a: a[:, :] - K.mean(
         a[:, :], keepdims=True), output_shape=(self.action_space,))(action_advantage)
 
         out = Add()([state_value, action_advantage])
   
-        model = Model([x], out, name='TCnn-model_1')
+        model = Model([X_input], out, name='TCnn-model_1')
 
         if self.optimizer_model == 'Adam':
-            optimizer = Adam(lr=self.learning_rate, clipnorm=1.)
+            optimizer = Adam(lr=self.learning_rate, clipnorm=2.)
         elif self.optimizer_model == 'RMSProp':
             optimizer = RMSprop(self.learning_rate, 0.99, 0.0, 1e-6,)
         else:
             print('Invalid optimizer!')
 
-        model.compile(loss="mse",  optimizer=optimizer)
+        model.compile(loss=tf.keras.losses.Huber(delta=10), metrics=['mean_absolute_error','accuracy'] , optimizer=optimizer)
         model.summary()
         return model
 
 def build_Parrallel_64(self): 
         self.network_size = 256
-        X_input = Input(shape=(self.REM_STEP*99) )
+        X_input = Input(shape=(self.REM_STEP*86) )
         # X_input = Input(shape=(self.REM_STEP*7,))
-        input_reshape=(self.REM_STEP,99)
+        input_reshape=(self.REM_STEP,86)
         X = X_input
         truncatedn_init = initializers.TruncatedNormal(0, 1e-2)
         x_init = "he_uniform"
@@ -199,27 +233,26 @@ def build_Parrallel_64(self):
         # slice2 = Permute((2,1))(slice2)
         #normailsation fort each dimension 
         normlayer_1 = LayerNormalization( 
-                axis=1,trainable=True,epsilon =0.001,center=True,
+                axis=-1,trainable=True,epsilon =0.0001,center=True,
                 scale=True,
                 beta_initializer="zeros",
                 gamma_initializer="ones") 
         normlayer_2 = LayerNormalization( 
-                axis=2,trainable=True,epsilon =0.001,center=True,
+                axis=-1,trainable=True,epsilon =0.0001,center=True,
                 scale=True,
                 beta_initializer="zeros",
                 gamma_initializer="ones")  
 
-        x = normlayer_2(X_reshaped)
-        x = Dense(64,
-                  kernel_initializer=x_init)(x)     
-        x = gaussian(x)
+        x = normlayer_2(X_input)
+        x = Dense(90,activation=LeakyReLU(0.1),  kernel_initializer=initializers.RandomNormal(stddev=2),
+    bias_initializer=truncatedn_init, use_bias = True)(x)      
         out_a = (x)
 
-        x = TimeDistributed(Dense(64,
-                  kernel_initializer=x_init))(t)     
-        x = gaussian(x)
-        x = MaxPooling1D(2)(x) 
-        x = Flatten()(x) 
+        x = normlayer_1(X_reshaped)
+        x = TimeDistributed(Dense(90, activation=LeakyReLU(0.1),kernel_initializer=initializers.RandomNormal(stddev=2),
+    bias_initializer=truncatedn_init, use_bias = True))(x)      
+        x = MaxPooling1D((2))(x) 
+        x =Flatten()(x)
         out_b = (x) 
      
         
@@ -246,10 +279,8 @@ def build_Parrallel_64(self):
 
         out_d = (concatenated)
 
-        out_d = Dense(512, activation='relu',
-                      kernel_initializer='he_uniform')(out_d)
-        out_d = Dense(64, activation='relu',
-                      kernel_initializer='he_uniform')(out_d)
+        out_d = Dense(512, activation='relu', kernel_initializer=initializers.RandomNormal(stddev=2))(out_d)
+        out_d = Dense(256, activation='relu', kernel_initializer=initializers.RandomNormal(stddev=2))(out_d)
 
         state_value = Dense(1, kernel_initializer='he_uniform')(out_d)
         state_value = Lambda(lambda s: K.expand_dims(
@@ -264,7 +295,8 @@ def build_Parrallel_64(self):
 
         model_final = Model([X_input], out, name='Pa12_model')
 
-        model_final.compile(loss=huber_loss, optimizer=RMSprop(self.learning_rate, 0.99, 0.0, 1e-6), metrics=["accuracy"])
+        model_final.compile(optimizer=Adam(
+            lr=self.learning_rate), loss=tf.keras.losses.Huber(delta=2.35), metrics=['mean_absolute_error','accuracy'] )
         #  RMSprop(lr=self.learning_rate, rho=0.95, decay=25e-5, moepsilon=self.epsilon), metrics=["accuracy"])
         print(model_final.summary())
         return model_final
@@ -283,9 +315,9 @@ def sumofsquares(y_true, y_pred):  # critic loss
 
 def FCTime_distributed_model(self, action_space=6, dueling=True):
         self.network_size = 256
-        X_input = Input(shape=(self.REM_STEP*99) )
+        X_input = Input(shape=(self.REM_STEP*62) )
         # X_input = Input(shape=(self.REM_STEP*7,))
-        input_reshape=(self.REM_STEP,99)
+        input_reshape=(self.REM_STEP,62)
         X = X_input
         truncatedn_init = initializers.TruncatedNormal(0, 1e-2)
         x_init = "he_uniform"
@@ -294,8 +326,8 @@ def FCTime_distributed_model(self, action_space=6, dueling=True):
         X_reshaped = Reshape(input_reshape)(X_input)
 
 
-        slice2 = tf.slice(X_reshaped,[0,0,0],[-1,2,10]) 
-        slice2 = Reshape((2,-1))(slice2)
+        slice2 = tf.slice(X_reshaped,[0,0,0],[-1,2,8]) 
+        slice2 = Reshape((2,-1,1))(slice2)
         # slice2 = Permute((2,1))(slice2)
         #normailsation fort each dimension 
         normlayer_1 = LayerNormalization( 
@@ -313,15 +345,16 @@ def FCTime_distributed_model(self, action_space=6, dueling=True):
         TD1 = (normlayer_1)(slice2)
         # TD1 = (normlayer_2)(TD1)
         # TD1 = TimeDistributed(Dense(32, activation = "tanh",bias_initializer=const_init,kernel_initializer=y_init, use_bias=True))(TD1) 
-        # TD1 = Reshape((2,-1))(TD1)        
+        # TD1 = Reshape((2,-1))(TD1)      
+        TD1 = Dense(4, activation = "relu", kernel_initializer=y_init, bias_initializer=const_init, use_bias=True)(TD1) 
+        TD1 = Dense(4, activation = "relu", kernel_initializer=y_init,bias_initializer=const_init,use_bias=True )(TD1)   
+
         TD1 = Flatten()(TD1) 
-        TD1 = Dense(32, activation = "relu", kernel_initializer=y_init, bias_initializer=const_init, use_bias=True)(TD1) 
-        TD1 = Dense(32, activation = "relu", kernel_initializer=y_init,bias_initializer=const_init,use_bias=True )(TD1) 
         
 
 
-        slice3 = tf.slice(X_reshaped,[0,0,10],[-1,2,4]) 
-        slice3 = Reshape((2,-1))(slice3)
+        slice3 = tf.slice(X_reshaped,[0,0,8],[-1,2,4]) 
+        slice3 = Reshape((2,-1,4))(slice3)
         # slice3 = Permute((2,1))(slice3)
         normlayer_1 = LayerNormalization( 
                 axis=2,trainable=True,epsilon =0.0001,center=True,
@@ -336,14 +369,15 @@ def FCTime_distributed_model(self, action_space=6, dueling=True):
         TD2 = (normlayer_1)(slice3)
         # TD2 = (normlayer_2)(TD2)
         # TD2 = TimeDistributed(Dense(32, activation =PReLU(), bias_initializer=const_init,kernel_initializer=y_init,use_bias=True))(TD2) 
-        # TD2 = Reshape((2,-1))(TD2)         
+        # TD2 = Reshape((2,-1))(TD2)     
+        TD2 = Dense(4, activation =  "relu", kernel_initializer=y_init,bias_initializer=const_init,use_bias=True )(TD2)
+        TD2 = Dense(2, activation ="relu", kernel_initializer=y_init,bias_initializer=const_init,use_bias=True )(TD2) 
+        TD2 = Dense(1, activation = "relu" ,kernel_initializer=y_init ,bias_initializer=const_init,use_bias=True)(TD2)     
         TD2 = Flatten()(TD2)     
-        TD2 = Dense(16, activation ="relu", kernel_initializer=y_init,bias_initializer=const_init,use_bias=True )(TD2) 
-        TD2 = Dense(32, activation = "relu" ,kernel_initializer=y_init ,bias_initializer=const_init,use_bias=True)(TD2) 
         # 
 
-        slice4 = tf.slice(X_reshaped,[0,0,14],[-1,2,25])
-        slice4 = Reshape((2,-1))(slice4)
+        slice4 = tf.slice(X_reshaped,[0,0,12],[-1,2,20])
+        slice4 = Reshape((2,-1,4))(slice4)
         # slice4 = Permute((2,1))(slice4)
 
         normlayer_1 = LayerNormalization( 
@@ -360,13 +394,14 @@ def FCTime_distributed_model(self, action_space=6, dueling=True):
         # TD3 = (normlayer_2)(TD3)
         # TD3 = TimeDistributed(Dense(32, activation =PReLU(), kernel_initializer=y_init,bias_initializer=const_init,use_bias=True))(TD3) 
         # TD3 = Reshape((2,-1))(TD3)
+        TD3 = Dense(4, activation =  "relu", kernel_initializer=y_init,bias_initializer=const_init,use_bias=True )(TD3)
+        TD3 = Dense(2, activation = "relu",kernel_initializer=y_init,bias_initializer=const_init,use_bias=True )(TD3) 
+        TD3 = Dense(1, activation ="relu",kernel_initializer=y_init,bias_initializer=const_init, use_bias=True)(TD3) 
         TD3 = Flatten()(TD3) 
-        TD3 = Dense(32, activation = "relu",kernel_initializer=y_init,bias_initializer=const_init,use_bias=True )(TD3) 
-        TD3 = Dense(64, activation ="relu",kernel_initializer=y_init,bias_initializer=const_init, use_bias=True)(TD3) 
         # 
   
-        slice5 = tf.slice(X_reshaped,[0,0,39],[-1,2,-1])
-        slice5 = Reshape((2,-1))(slice5)        
+        slice5 = tf.slice(X_reshaped,[0,0,32],[-1,2,-1])
+        slice5 = Reshape((2,-1,2))(slice5)        
         # slice5 = Permute((2,1))(slice5)
 
         normlayer_1 = LayerNormalization( 
@@ -384,14 +419,14 @@ def FCTime_distributed_model(self, action_space=6, dueling=True):
         # TD4 = (normlayer_2)(TD4)
         # TD4 = TimeDistributed(Dense(32, activation = PReLU() ,kernel_initializer=y_init,bias_initializer=const_init,use_bias=True))(TD4) 
         # TD4 = Reshape((2,-1))(TD4)        "relu", 
+        TD4 = Dense(2, activation =  "relu", kernel_initializer=y_init,bias_initializer=const_init,use_bias=True )(TD4)
+        TD4 = Dense(1, activation = "relu", kernel_initializer=y_init,bias_initializer=const_init,use_bias=True )(TD4)  
         TD4 = Flatten()(TD4) 
-        TD4 = Dense(32, activation =  "relu", kernel_initializer=y_init,bias_initializer=const_init,use_bias=True )(TD4)
-        TD4 = Dense(64, activation = "relu", kernel_initializer=y_init,bias_initializer=const_init,use_bias=True )(TD4)  
         # 
         # R1=LSTM(64)(X_reshaped)# cnn1 = Conv1D(filters=64,  kernel_size=(2),activation =LeakyReLU(.4),kernel_initializer=y_init,use_bias=True)(cnn1)          
         
         concatenated = Concatenate()([TD4,TD3,TD2,TD1])
-        cnn1 = Flatten()(concatenated) 
+        cnn1 = (concatenated) 
         cnn1 = Dense(512,kernel_initializer=y_init, activation ="relu",bias_initializer=const_init,use_bias=True )(cnn1)
         cnn1 = Dense(256,kernel_initializer=y_init, activation ="relu",bias_initializer=const_init,use_bias=True )(cnn1)    
         X= cnn1
@@ -480,8 +515,8 @@ def build_Embedded(self, action_space=6, dueling=True):
 
 def build_LSTM(self, action_space=6, dueling=True):
         self.network_size = 256
-        X_input = Input(shape=(self.REM_STEP*112,))
-        input_reshape=(self.REM_STEP,112,)
+        X_input = Input(shape=(self.REM_STEP*92,))
+        input_reshape=(self.REM_STEP,92,)
         X = X_input
         Xo = Reshape(input_reshape)(X) 
         
@@ -499,8 +534,9 @@ def build_LSTM(self, action_space=6, dueling=True):
 
         X = Dense(512, 
                   kernel_initializer='he_uniform')(Xo)
-        X = LeakyReLU(0.7)(X) 
+        X = LeakyReLU(0.1)(X) 
         X = LSTM(128,recurrent_activation="tanh", activation="relu", kernel_initializer="he_uniform")(X)
+        X = Flatten()(X) 
         if dueling:
             state_value = Dense( 
                 1, kernel_initializer='he_uniform' ,activation="softmax")(X)
@@ -518,8 +554,8 @@ def build_LSTM(self, action_space=6, dueling=True):
                       kernel_initializer='he_uniform')(X)
 
         model = Model(inputs=X_input, outputs=X, name='Base_FC-LSTM_128n')
-        model.compile(loss=huber_loss, optimizer=Adam(
-            lr=self.learning_rate),  metrics=["accuracy"])
+        model.compile(loss=tf.keras.losses.Huber(delta=3), metrics=['mean_absolute_error','accuracy'] ,optimizer=Adam(
+            lr=self.learning_rate))
 
         # model.compile(loss="mean_squared_error", optimizer=Adam(lr=0.00025,epsilon=0.01), metrics=["accuracy"])
         model.summary()

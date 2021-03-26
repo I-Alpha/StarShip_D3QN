@@ -120,6 +120,23 @@ def mkdir_p(mypath):
             pass
         else: raise
 
+class ReplayBuffer:
+    def __init__(self, capacity=10000):
+        self.buffer = deque(maxlen=capacity)
+    
+    def put(self, state, action, reward, next_state, done):
+        self.buffer.append([state, action, reward, next_state, done])
+    
+    def sample(self):
+        sample = random.sample(self.buffer, args.batch_size)
+        states, actions, rewards, next_states, done = map(np.asarray, zip(*sample))
+        states = np.array(states).reshape(args.batch_size, -1)
+        next_states = np.array(next_states).reshape(args.batch_size, -1)
+        return states, actions, rewards, next_states, done
+    
+    def size(self):
+        return len(self.buffer)
+        
 class RingBuf:
     def __init__(self, size):
         # Pro-tip: when implementing a ring buffer, always allocate one extra element,

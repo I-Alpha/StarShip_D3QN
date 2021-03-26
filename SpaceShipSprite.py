@@ -76,7 +76,7 @@ class SpaceShipSprite(DestructableObject):
                    self.currentPos  =  (DestructableObject.bounds[0]-self.image_size[0]-5,self.currentPos[1])  
                    self.action_status = - 1
       def fireprojectile(self):      
-            newprojectile = Projectile(self.screen,r'Assets\imgs\bullet1.png',movespeed=-8,startPosition=(self.currentPos[0]+5,self.currentPos[1]-14))
+            newprojectile = Projectile(self.screen,r'Assets\imgs\bullet1.png',movespeed=-8,startPosition=(self.currentPos[0],self.currentPos[1]-14))
             mps = pygame.time.get_ticks()/1000 - self.firedAt/1000
             if self.currentAmmo > 0 :
                    if mps > 1 and self.currentAmmo < self.ammoMax:

@@ -19,51 +19,32 @@ parser.add_argument('--checkpoint', '-chk',type=int, default=None)
 parser.add_argument('--last_epoch', '-le', type=int, default=0) 
 
 args = parser.parse_args()
-
+model = args.model
 if __name__ == '__main__': 
     if args.checkpoint == None:  
         args.checkpoint = 400
-        print("\n\n\n --checkpoint not given.\n Default checkpoint set at {} epochs.".format(args.checkpoint))
+        print("\n-Checkpoint not given.\n-Default checkpoint set at {} epochs.".format(args.checkpoint))
     else :
-        print("checkpoint at {}".format(args.checkpoint))
-    if args.last_epoch > 0 and  args.model == None:
-        print("\n\n\nError. No model specified but last checkpoint specified at ",args.last_epoch,".")
-        exit()
-        
-    if args.mode == 'train':
-            if args.model != None:
-                try: 
-                        with keras.utils.CustomObjectScope({'PReLU': PReLU,'LeakyReLU':LeakyReLU}):  
-                            model = keras.models.load_model(args.model)
-                        print(model.summary())       
-                        print("\n\n\n  Model - {  " + args.model + "  }  has been loaded! ")                      
-                        ans = input("Are you sure you want to use this model? Y/\/N ? :    ")
-                        if ans.upper() != "Y":
-                            b=print("Please rerun the program and choose a different model. Thanks. ")
-                            exit(code=b)      
-                        print("\nbeginning....Training \n\n ") 
-                except :
-                        print("Error. Unable to load model.")                   
-                try:
-                    loss = train_dqn( args.epochs,args.graphics, ch=args.checkpoint, lchk=args.last_epoch-1, model=model)
-                except:
-                    print("Something went wrong with training. Check model is not incompatible with current enviroment configuration")
-                    exit()
-            else:
-                    print(' \n No model specified. \n Building new model for training.\n\n')
-                    loss = train_dqn(args.epochs, args.graphics, ch=args.checkpoint)
-
-    else:
+        print("\n-Checkpoint at {}".format(args.checkpoint))
+    if args.last_epoch > 0 and  args.model == None:        
+        sys.exit("\nError. No model specified but last checkpoint specified at ",args.last_epoch,".")
+    if args.model != None:
             try: 
-                        with keras.utils.CustomObjectScope({'PReLU': PReLU,'LeakyReLU':LeakyReLU}):  
-                            model = keras.models.load_model(args.model)
-                        print(model.summary())       
-                        print("\n\n\n  Model - {  " + args.model + "  }  has been loaded! ")                      
-                        ans = input("Are you sure you want to use this model? Y/\/N ? :    ")
-                        if ans.upper() != "Y":
-                            b=print("Please rerun the program and choose a different model. Thanks. ")
-                            exit(code=b)      
-                        print("\nbeginning....Training \n\n ") 
+                with keras.utils.CustomObjectScope({'PReLU': PReLU,'LeakyReLU':LeakyReLU}):  
+                    model = keras.models.load_model(args.model)
+                print(model.summary())       
+                print("\n Model - {  " + args.model + "  }  has been loaded! ")                      
+                ans = input("Are you sure you want to use this model? Y/\/N ? :    ")
+                if ans.upper() != "Y":
+                   sys.exit("Please load a different model. Thanks. ")
             except :
-                        print("Error. Unable to load model.")                   
-                        pass
+                sys.exit("Error. Unable to load model.")    
+
+
+    if args.mode =="train"  :
+        loss = train_dqn( args.epochs,args.graphics, ch=args.checkpoint, lchk=args.last_epoch, model=model)                        
+    elif args.mode == 'test': 
+        if args.model != None: 
+            loss = test( args.epochs,args.graphics, model=model)
+        else: 
+            sys.exit("Please specify a model!")

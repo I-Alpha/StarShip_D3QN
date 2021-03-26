@@ -3,9 +3,9 @@ import numpy as np
 
 class Memory:  # stored as ( s, a, r, s_ ) in SumTree
     e = 0.01
-    a = 0.8
-    beta = 0.1
-    beta_increment_per_sampling = 0.0001
+    a = 0.5
+    beta = 0.2
+    beta_increment_per_sampling = 0.000003 
 
     def __init__(self, capacity):
         self.tree = SumTree(capacity)
@@ -24,12 +24,11 @@ class Memory:  # stored as ( s, a, r, s_ ) in SumTree
         segment = self.tree.total() / n
         priorities = []
 
-        self.beta = np.min([1., self.beta + self.beta_increment_per_sampling])
+        self.beta = np.min([1., np.max([self.beta+self.beta_increment_per_sampling,1e-8])])
 
         for i in range(n):
             a = segment * i
             b = segment * (i + 1)
-
             s = random.uniform(a, b)
             (idx, p, data) = self.tree.get(s)
             priorities.append(p)
